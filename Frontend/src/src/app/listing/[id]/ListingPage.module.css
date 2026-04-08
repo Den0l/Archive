@@ -1,0 +1,354 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.productHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.mediaColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.mainImageWrapper {
+    width: 100%;
+    border: 3px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffffcc);
+    box-shadow: 4px 4px 0 #cc6600;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 43rem;
+}
+
+.mainImage {
+    width: 100%;
+    height: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    cursor: zoom-in;
+}
+
+.noImage {
+    font-weight: bold;
+    color: #000099;
+    text-align: center;
+}
+
+.thumbRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: 10px;
+}
+
+.thumbButton {
+    border: 2px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffef99);
+    padding: 4px;
+    box-shadow: inset 1px 1px 0 #ffffff;
+    cursor: pointer;
+}
+
+.thumbButton:hover {
+    background: linear-gradient(to bottom, #ffef99, #ffcc99);
+}
+
+.thumbActive {
+    border-color: #000099;
+    box-shadow: inset 2px 2px 0 #ffffff, 2px 2px 0 #cc6600;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 64px;
+    object-fit: contain;
+    background: #ffffff;
+}
+
+.infoColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    border: 3px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffef99);
+    box-shadow: 4px 4px 0 #cc6600;
+    padding: 20px;
+    min-height: 43rem;
+}
+
+.title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: bold;
+    color: #000099;
+    text-shadow: 2px 2px 0 #ffffff;
+    text-align: left;
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.statusBadge {
+    border: 2px solid #ff9900;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 2px 2px 0 #cc6600;
+}
+
+.statusSold {
+    background: #cc0000;
+    color: #ffffff;
+    border-color: #990000;
+}
+
+.statusArchived {
+    background: #6c757d;
+    color: #ffffff;
+    border-color: #3d3d3d;
+}
+
+.priceRow {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 3px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffcc, #ffcc99);
+    box-shadow: inset 2px 2px 0 #ffffff;
+}
+
+.cartActions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.cartButton {
+    flex: 1 1 auto;
+    width: auto;
+}
+
+.favoriteButton {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 3px solid #b0b0b0;
+    background: #ffffff;
+    color: #8a8a8a;
+    font-size: 20px;
+    font-weight: bold;
+    box-shadow: 2px 2px 0 #cc6600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.favoriteButton:hover {
+    transform: translateY(-1px);
+    background: #ffef99;
+    color: #cc0000;
+    border-color: #cc0000;
+}
+
+.favoriteActive {
+    background: #cc0000;
+    color: #ffffff;
+    border-color: #990000;
+}
+
+.price {
+    font-size: 28px;
+    font-weight: bold;
+    color: #cc0000;
+}
+
+.priceNote {
+    font-size: 12px;
+    font-weight: bold;
+    color: #000099;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metaGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+}
+
+.metaItem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border: 2px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffffcc);
+    box-shadow: inset 1px 1px 0 #ffffff;
+}
+
+.metaLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #000099;
+    text-transform: uppercase;
+}
+
+.metaValue {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+}
+
+.metaLink {
+    font-size: 14px;
+    font-weight: bold;
+    color: #0000cc;
+    text-decoration: none;
+}
+
+.metaLink:hover {
+    color: #cc0000;
+}
+
+.ctaBox {
+    border: 3px solid #ff6600;
+    background: linear-gradient(to bottom, #ffef99, #ffcc99);
+    box-shadow: 3px 3px 0 #cc6600;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 12rem;
+}
+
+.ctaTitle {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000099;
+    text-transform: uppercase;
+}
+
+.ctaButton {
+    width: 100%;
+}
+
+.messageForm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 80px;
+}
+
+.messageActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.detailsSection {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+}
+
+.detailsBlock {
+    border: 3px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffffcc);
+    box-shadow: 4px 4px 0 #cc6600;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.sectionTitle {
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #000099;
+}
+
+.sectionText {
+    margin: 0;
+    font-size: 15px;
+    font-weight: bold;
+    color: #000000;
+    line-height: 1.5;
+}
+
+.propertiesList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.propertyItem {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 2px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffcc, #ffef99);
+    box-shadow: inset 1px 1px 0 #ffffff;
+}
+
+.propertyLabel {
+    font-weight: bold;
+    color: #000099;
+}
+
+.propertyValue {
+    font-weight: bold;
+    color: #000000;
+}
+
+@media (max-width: 900px) {
+    .productHeader {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .metaGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mainImageWrapper {
+        min-height: 280px;
+    }
+}
+
+@media (max-width: 600px) {
+    .mainImage {
+        max-height: 320px;
+    }
+
+    .thumbRow {
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    }
+
+    .thumbnail {
+        height: 56px;
+    }
+
+    .price {
+        font-size: 24px;
+    }
+}

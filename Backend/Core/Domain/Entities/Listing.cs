@@ -1,0 +1,35 @@
+﻿using Domain.Common;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Entities {
+
+    /// <summary>
+    /// Represents item being sold. Belongs to one category. Has a list of ListingPropertyValues, that
+    /// have to match the ListingProperties of the category it belongs to. So for example
+    /// if the category is "Clothes" with ListingProperties "Color", "Size", this listing then
+    /// has to have ListingPropertyValues matching the ListingProperties, so for example "Red" and "XXL".
+    /// </summary>
+    public class Listing : IEntity {
+		public Guid Id { get; set; }
+		public decimal Price { get; set; }
+		public Guid SellerId { get; set; }
+		public StateOfItem StateOfItem { get; set; }
+		public Guid StateOfItemId { get; set; }
+		public string Title { get; set; }
+		public string Description { get; set; }
+		public bool IsSold { get; set; }
+		public bool IsArchived { get; set; }
+		public DateTime CreatedAt { get; set; }
+		public Guid CityId { get; set; }
+		public City City { get; set; }
+		public Guid CategoryId { get; set; }
+		public Category Category { get; set; }
+		public List<ListingPropertyValue> SelectedListingPropertyValues { get; set; }
+		public List<Image> Images { get; set; }
+	}
+}

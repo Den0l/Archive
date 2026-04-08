@@ -1,0 +1,22 @@
+﻿
+namespace Application.Filters
+{
+    public enum Ordering { Price, CreatedAt }
+    public enum OrderingDirection { Ascending, Descending }
+    public class ListingFilter
+    {
+        public decimal? PriceMin { get; set; }
+        public decimal? PriceMax { get; set; }
+        public Guid? SellerId { get; set; }
+        public Guid? CityId { get; set; }
+        public int? Radius { get; set; }
+        public string? Search {  get; set; }
+        public Ordering Ordering { get; set; } = Ordering.CreatedAt;
+        public OrderingDirection OrderingDirection { get; set; } = OrderingDirection.Descending;
+        public bool IncludeSold { get; set; } = false;
+        public bool IncludeArchived { get; set; } = false;
+        public List<Guid> StateOfItemIds { get; set; }
+        public List<Guid> SelectedListingPropertyValueIds { get; set; }
+
+    }
+}

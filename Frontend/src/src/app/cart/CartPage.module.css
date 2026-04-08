@@ -1,0 +1,249 @@
+﻿.cartPage {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.tabHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.tabButtons {
+    display: flex;
+    gap: 0;
+    border: 2px solid #ff9900;
+    background: #ffffcc;
+    padding: 4px;
+    box-shadow: 3px 3px 0 #cc6600;
+    border-radius: 8px;
+}
+
+.tabButton {
+    border: 2px solid transparent;
+    background: linear-gradient(to bottom, #ffffff, #ffef99);
+    color: #000099;
+    font-weight: bold;
+    padding: 8px 20px;
+    cursor: pointer;
+}
+
+.tabActive {
+    background: linear-gradient(to bottom, #ffcc66, #ffef99);
+    color: #cc0000;
+}
+
+.tabButton + .tabButton {
+    border-left: 2px solid #ff9900;
+}
+
+.tabArrows {
+    display: flex;
+    gap: 8px;
+}
+
+.arrowButton {
+    border: 2px solid #000099;
+    background: #ffffff;
+    color: #000099;
+    font-weight: bold;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 #cc6600;
+}
+
+.title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: bold;
+    color: #000099;
+    text-shadow: 2px 2px 0 #ffffff;
+}
+
+.cartLayout {
+    display: grid;
+    gap: 24px;
+    align-items: start;
+}
+
+.itemsColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cartItem {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    border: 3px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffffcc);
+    box-shadow: 4px 4px 0 #cc6600;
+    padding: 12px;
+    position: relative;
+}
+
+.itemImage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 2px solid #ff9900;
+    padding: 6px;
+    text-decoration: none;
+}
+
+.itemImage img {
+    width: 100%;
+    height: 90px;
+    object-fit: contain;
+}
+
+.itemInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.itemTitle {
+    font-weight: bold;
+    color: #000099;
+    text-decoration: none;
+}
+
+.itemTitle:hover {
+    color: #cc0000;
+}
+
+.itemMeta {
+    display: flex;
+    gap: 12px;
+    font-weight: bold;
+    color: #000000;
+}
+
+.itemActions {
+    display: flex;
+    align-items: center;
+}
+
+.summaryColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.summaryCard {
+    border: 3px solid #ff6600;
+    background: linear-gradient(to bottom, #ffef99, #ffcc99);
+    box-shadow: 3px 3px 0 #cc6600;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.summaryRow {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    color: #000099;
+}
+
+.notice {
+    border: 2px dashed #ff9900;
+    background: #fff6da;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 2px 2px 0 #cc6600;
+}
+
+.noticeSuccess {
+    color: #006600;
+    border-color: #00aa55;
+    background: #f0fff4;
+}
+
+.noticeError {
+    color: #cc0000;
+    border-color: #ff6600;
+    background: #fff0f0;
+}
+
+.emptyState {
+    border: 3px dashed #ff9900;
+    padding: 32px;
+    text-align: center;
+    background: #ffffcc;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+}
+
+.emptyText {
+    margin: 0;
+    font-weight: bold;
+    color: #000099;
+}
+
+.soldRibbon {
+    position: absolute;
+    top: 16px;
+    left: -42px;
+    transform: rotate(-45deg);
+    background: #cc0000;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 6px 48px;
+    box-shadow: 2px 2px 0 #660000;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    pointer-events: none;
+}
+
+@media (max-width: 900px) {
+    .cartLayout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .summaryColumn {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .summaryCard {
+        flex: 1 1 260px;
+    }
+}
+
+@media (max-width: 600px) {
+    .cartItem {
+        grid-template-columns: minmax(0, 1fr);
+        text-align: center;
+    }
+
+    .itemImage {
+        justify-self: center;
+        width: 100%;
+    }
+
+    .itemActions {
+        justify-content: center;
+    }
+
+    .tabHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
