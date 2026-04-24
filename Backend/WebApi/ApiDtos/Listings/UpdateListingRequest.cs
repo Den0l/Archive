@@ -13,12 +13,11 @@ namespace WebApi.ApiDtos.Listings
         public Guid StateOfItemId { get; set; }
 
         [Required]
-        [StringLength(120, MinimumLength = 5)]
+        [StringLength(120, MinimumLength = 3)]
         public string Title { get; set; }
 
-        [Required]
-        [StringLength(2000, MinimumLength = 20)]
-        public string Description { get; set; }
+        [StringLength(2000)]
+        public string? Description { get; set; }
 
         [NotEmptyGuid]
         public Guid CategoryId { get; set; }

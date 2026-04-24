@@ -1,25 +1,27 @@
-using System;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Application.Interfaces.Repositories;
+using AutoMapper;
 using Domain.Entities;
-using Infrastructure.Persistence.Contexts;
 using Infrastructure.Identity;
+using Infrastructure.Persistence.Contexts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using System.Security.Claims;
 using WebApi.ApiDtos.Checkout;
+using WebApi.ApiDtos.Messages;
+using WebApi.Hubs;
 using WebApi.Services;
-using Microsoft.Extensions.Logging;
 
 namespace WebApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CheckoutController : ControllerBase
+    public class CheckoutController : AuthorizedControllerBase
     {
+        private const string EmailConfirmationRequiredError =
+            "EMAIL_CONFIRMATION_REQUIRED";
         private readonly IReceiptEmailService receiptEmailService;
         private readonly IListingRepository listingRepository;
         private readonly IConversationRepository conversationRepository;
@@ -28,6 +30,9 @@ namespace WebApi.Controllers
         private readonly ISystemUserProvider systemUserProvider;
         private readonly MarketplaceDbContext dbContext;
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly IBackgroundNotificationQueue backgroundNotificationQueue;
+        private readonly IHubContext<ChatHub> chatHubContext;
+        private readonly IMapper mapper;
         private readonly ILogger<CheckoutController> logger;
 
         public CheckoutController(
@@ -39,6 +44,9 @@ namespace WebApi.Controllers
             ISystemUserProvider systemUserProvider,
             MarketplaceDbContext dbContext,
             UserManager<ApplicationUser> userManager,
+            IBackgroundNotificationQueue backgroundNotificationQueue,
+            IHubContext<ChatHub> chatHubContext,
+            IMapper mapper,
             ILogger<CheckoutController> logger)
         {
             this.receiptEmailService = receiptEmailService;
@@ -49,6 +57,9 @@ namespace WebApi.Controllers
             this.systemUserProvider = systemUserProvider;
             this.dbContext = dbContext;
             this.userManager = userManager;
+            this.backgroundNotificationQueue = backgroundNotificationQueue;
+            this.chatHubContext = chatHubContext;
+            this.mapper = mapper;
             this.logger = logger;
         }
 
@@ -58,30 +69,45 @@ namespace WebApi.Controllers
             if (request == null || request.Items == null || request.Items.Count == 0)
                 return BadRequest("Cart is empty.");
 
-            if (request.Items.Any(i => i.Quantity <= 0 || i.Price < 0 || i.ListingId == Guid.Empty))
+            if (request.Items.Any(item =>
+                item.Quantity <= 0 ||
+                item.Price < 0 ||
+                item.ListingId == Guid.Empty))
+            {
                 return BadRequest("Invalid cart item data.");
+            }
 
             var email = User.FindFirst(ClaimTypes.Email)?.Value;
             if (string.IsNullOrWhiteSpace(email))
                 return BadRequest("User email not found.");
 
             var nickname = User.FindFirst("nickname")?.Value;
-            var buyerIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrWhiteSpace(buyerIdString) || !Guid.TryParse(buyerIdString, out var buyerId))
-                return BadRequest("User id not found.");
+            var unauthorizedResult = UnauthorizedIfNoAuthenticatedUserId(
+                out var buyerId
+            );
+            if (unauthorizedResult != null)
+            {
+                return unauthorizedResult;
+            }
 
             var buyer = await userManager.FindByIdAsync(buyerId.ToString());
             if (buyer == null)
                 return BadRequest("User not found.");
+            if (!buyer.EmailConfirmed)
+                return BadRequest(EmailConfirmationRequiredError);
 
-            // First, ensure all listings are available before sending the receipt.
             foreach (var item in request.Items)
             {
                 var listing = await listingRepository.GetByIdAsync(item.ListingId);
-                if (listing == null)
+                var notFoundResult = NotFoundIfNull(
+                    listing,
+                    $"Listing {item.ListingId} not found."
+                );
+                if (notFoundResult != null)
                 {
-                    return NotFound($"Listing {item.ListingId} not found.");
+                    return notFoundResult;
                 }
+
                 if (listing.IsSold || listing.IsArchived)
                 {
                     return BadRequest($"Listing {listing.Title} is not available.");
@@ -93,27 +119,33 @@ namespace WebApi.Controllers
             {
                 await receiptEmailService.SendReceiptAsync(email, nickname, request);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
                 receiptEmailSent = false;
                 logger.LogWarning(
-                    ex,
+                    exception,
                     "Failed to send receipt email to {Email} during checkout confirmation.",
-                    email
-                );
+                    email);
             }
 
             var systemUser = await systemUserProvider.GetSystemUserAsync();
             var now = DateTime.Now;
+            var sellerOrderNotifications =
+                new List<(string Email, string Nickname, string BuyerName, string ListingTitle)>();
+            var hubNotifications = new List<(Guid RecipientId, Guid SenderId, Message Message)>();
 
             using var transaction = await dbContext.Database.BeginTransactionAsync();
             foreach (var item in request.Items)
             {
                 var listing = await listingRepository.GetByIdAsync(item.ListingId);
-                if (listing == null)
+                var notFoundResult = NotFoundIfNull(
+                    listing,
+                    $"Listing {item.ListingId} not found."
+                );
+                if (notFoundResult != null)
                 {
                     await transaction.RollbackAsync();
-                    return NotFound($"Listing {item.ListingId} not found.");
+                    return notFoundResult;
                 }
 
                 if (listing.IsSold || listing.IsArchived)
@@ -121,6 +153,13 @@ namespace WebApi.Controllers
                     await transaction.RollbackAsync();
                     return BadRequest($"Listing {listing.Title} is not available.");
                 }
+
+                var seller = await userManager.FindByIdAsync(listing.SellerId.ToString());
+                var sellerNickname = string.IsNullOrWhiteSpace(seller?.Nickname)
+                    ? "продавец"
+                    : seller.Nickname;
+                var buyerLink = $"[{buyer.Nickname}](/user/{buyerId})";
+                var sellerLink = $"[{sellerNickname}](/user/{listing.SellerId})";
 
                 listing.IsSold = true;
                 listing.IsArchived = false;
@@ -137,8 +176,16 @@ namespace WebApi.Controllers
                         LastUpdatedAt = now,
                         ConversationParticipants = new()
                         {
-                            new ConversationParticipant { ConversationId = conversationId, UserId = systemUser.Id },
-                            new ConversationParticipant { ConversationId = conversationId, UserId = listing.SellerId }
+                            new ConversationParticipant
+                            {
+                                ConversationId = conversationId,
+                                UserId = systemUser.Id
+                            },
+                            new ConversationParticipant
+                            {
+                                ConversationId = conversationId,
+                                UserId = listing.SellerId
+                            }
                         }
                     };
                     await conversationRepository.CreateAsync(sellerConversation);
@@ -157,7 +204,7 @@ namespace WebApi.Controllers
                 await orderRepository.CreateAsync(order);
 
                 var messageText =
-                    $"Новый заказ: {buyer.Nickname} оформил(а) заказ на объявление \"{listing.Title}\".";
+                    $"Новый [заказ](/user/orders?tab=seller): покупатель {buyerLink} оформил(а) покупку по объявлению {listing.Title} у продавца {sellerLink}.";
                 var message = new Message
                 {
                     Id = Guid.NewGuid(),
@@ -167,6 +214,7 @@ namespace WebApi.Controllers
                     CreatedAt = now
                 };
                 await messageRepository.CreateAsync(message);
+                hubNotifications.Add((listing.SellerId, systemUser.Id, message));
 
                 var buyerConversation = await conversationRepository
                     .ConversationExists(systemUser.Id, buyerId);
@@ -180,8 +228,16 @@ namespace WebApi.Controllers
                         LastUpdatedAt = now,
                         ConversationParticipants = new()
                         {
-                            new ConversationParticipant { ConversationId = buyerConversationId, UserId = systemUser.Id },
-                            new ConversationParticipant { ConversationId = buyerConversationId, UserId = buyerId }
+                            new ConversationParticipant
+                            {
+                                ConversationId = buyerConversationId,
+                                UserId = systemUser.Id
+                            },
+                            new ConversationParticipant
+                            {
+                                ConversationId = buyerConversationId,
+                                UserId = buyerId
+                            }
                         }
                     };
                     await conversationRepository.CreateAsync(buyerConversation);
@@ -192,14 +248,45 @@ namespace WebApi.Controllers
                     Id = Guid.NewGuid(),
                     ConversationId = buyerConversation.Id,
                     SenderId = systemUser.Id,
-                    Content = $"Ваш заказ оформлен: \"{listing.Title}\".",
+                    Content = $"Ваш [заказ](/user/orders) оформлен по объявлению {listing.Title}. Покупатель: {buyerLink}. Продавец: {sellerLink}.",
                     CreatedAt = now
                 };
                 await messageRepository.CreateAsync(buyerMessage);
+                hubNotifications.Add((buyerId, systemUser.Id, buyerMessage));
+
+                if (seller != null &&
+                    seller.NotifyEmailOnSellerOrder &&
+                    !string.IsNullOrWhiteSpace(seller.Email))
+                {
+                    sellerOrderNotifications.Add((
+                        seller.Email,
+                        seller.Nickname,
+                        buyer.Nickname,
+                        listing.Title));
+                }
             }
 
             await dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            foreach (var (recipientId, senderId, msg) in hubNotifications)
+            {
+                var dto = mapper.Map<MessageDto>(msg);
+                await chatHubContext.Clients
+                    .Group($"user:{recipientId}")
+                    .SendAsync("ReceiveMessageNotification", senderId, dto);
+            }
+
+            foreach (var notification in sellerOrderNotifications)
+            {
+                await backgroundNotificationQueue.QueueAsync(
+                    (notificationEmailService, cancellationToken) =>
+                        notificationEmailService.SendSellerOrderNotificationAsync(
+                            notification.Email,
+                            notification.Nickname,
+                            notification.BuyerName,
+                            notification.ListingTitle));
+            }
 
             return Ok(new
             {

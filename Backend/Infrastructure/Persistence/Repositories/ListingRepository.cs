@@ -76,6 +76,21 @@ namespace Infrastructure.Persistence.Repositories
 			if (existingListing == null) {
 				return null;
 			}
+
+			var cartItems = await dbContext.CartItems
+				.Where(cartItem => cartItem.ListingId == id)
+				.ToListAsync();
+			if (cartItems.Count > 0) {
+				dbContext.CartItems.RemoveRange(cartItems);
+			}
+
+			var favoriteItems = await dbContext.FavoriteItems
+				.Where(favoriteItem => favoriteItem.ListingId == id)
+				.ToListAsync();
+			if (favoriteItems.Count > 0) {
+				dbContext.FavoriteItems.RemoveRange(favoriteItems);
+			}
+
 			// delete images from the filesystem
 			// (we dont have to delete them from the database, because of the cascade delete)
 			foreach(Image image in existingListing.Images) {

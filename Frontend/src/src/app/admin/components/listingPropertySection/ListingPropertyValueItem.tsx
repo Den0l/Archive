@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { normalizeSingleLine, validateEntityName } from '@/utils/validation';
+import AdminActionsMenu from '../AdminActionsMenu';
 
 interface ListingPropertyValueItemProps {
     value: { id: string; name: string };
-    onDelete: (valueId: string) => void;
-    onEdit: (valueId: string, name: string) => void;
+    onDelete: (valueId: string) => boolean | Promise<boolean>;
+    onEdit: (valueId: string, name: string) => boolean | Promise<boolean>;
 }
 
 export default function ListingPropertyValueItem({
@@ -18,7 +19,7 @@ export default function ListingPropertyValueItem({
     const [newName, setNewName] = useState(value.name);
     const [error, setError] = useState('');
 
-    const handleEdit = () => {
+    const handleEdit = async () => {
         const normalizedName = normalizeSingleLine(newName);
         const validationError = validateEntityName(
             'Название значения',
@@ -31,22 +32,27 @@ export default function ListingPropertyValueItem({
             return;
         }
 
-        onEdit(value.id, normalizedName);
-        setIsEditing(false);
+        const isSaved = await onEdit(value.id, normalizedName);
+        if (isSaved) {
+            setIsEditing(false);
+        }
     };
 
     return (
-        <li className="d-flex justify-content-between align-items-center mb-2 w-100">
+        <li className="d-flex justify-content-between align-items-center mb-2 w-100 admin-property-value-item">
             {isEditing ? (
-                <div className="d-flex flex-grow-1 gap-2 flex-wrap">
-                    <div className="flex-grow-1">
+                <div className="d-flex flex-grow-1 gap-2 flex-wrap admin-property-value-item__edit">
+                    <div className="flex-grow-1 admin-property-value-item__edit-input">
                         <input
                             type="text"
                             className={`form-control flex-grow-1 ${
                                 error ? 'is-invalid' : ''
                             }`}
                             value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
+                            onChange={(e) => {
+                                setNewName(e.target.value);
+                                setError('');
+                            }}
                             onBlur={() => {
                                 const normalized =
                                     normalizeSingleLine(newName);
@@ -58,26 +64,25 @@ export default function ListingPropertyValueItem({
                                     ) || ''
                                 );
                             }}
+                            placeholder="Название значения"
                             aria-invalid={Boolean(error)}
                         />
-                        {error && (
-                            <div className="invalid-feedback d-block">
-                                {error}
-                            </div>
-                        )}
+                        <div className="invalid-feedback d-block field-error-slot">
+                            {error || '\u00A0'}
+                        </div>
                     </div>
                     <button
                         type="button"
                         className="btn btn-primary"
-                        onClick={handleEdit}
+                        onClick={() => void handleEdit()}
                     >
                         Подтвердить
                     </button>
                 </div>
             ) : (
                 <>
-                    <span className="me-auto">{value.name}</span>
-                    <div className="d-flex gap-2">
+                    <span className="me-auto admin-property-value-item__name">{value.name}</span>
+                    <AdminActionsMenu className="d-flex gap-2 admin-property-value-item__actions">
                         <button
                             type="button"
                             className="btn btn-sm btn-primary"
@@ -92,11 +97,11 @@ export default function ListingPropertyValueItem({
                         <button
                             type="button"
                             className="btn btn-sm btn-danger"
-                            onClick={() => onDelete(value.id)}
+                            onClick={() => void onDelete(value.id)}
                         >
                             Удалить
                         </button>
-                    </div>
+                    </AdminActionsMenu>
                 </>
             )}
         </li>

@@ -1,20 +1,18 @@
-import api from './apiClient';
+import { deleteVoid, getData, postData } from './httpClient';
 import { FavoriteItemDto } from '@/types/api/favorites';
 
 export const fetchFavorites = async (): Promise<FavoriteItemDto[]> => {
-    const { data } = await api.get<FavoriteItemDto[]>('/api/Favorites');
-    return data;
+    return getData<FavoriteItemDto[]>('/api/Favorites');
 };
 
 export const addFavorite = async (
     listingId: string
 ): Promise<FavoriteItemDto> => {
-    const { data } = await api.post<FavoriteItemDto>('/api/Favorites', {
+    return postData<FavoriteItemDto, { listingId: string }>('/api/Favorites', {
         listingId,
     });
-    return data;
 };
 
 export const removeFavorite = async (listingId: string): Promise<void> => {
-    await api.delete(`/api/Favorites/${listingId}`);
+    await deleteVoid(`/api/Favorites/${listingId}`);
 };

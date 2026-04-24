@@ -43,7 +43,10 @@ export default function CategoryNameEdit({
                 className={`form-control ${error ? 'is-invalid' : ''}`}
                 id="categoryName"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                    setName(e.target.value);
+                    setError('');
+                }}
                 onBlur={() => {
                     const normalized = normalizeSingleLine(name);
                     setName(normalized);
@@ -56,11 +59,12 @@ export default function CategoryNameEdit({
                 }}
                 minLength={VALIDATION_LIMITS.entityNameMinLength}
                 maxLength={VALIDATION_LIMITS.entityNameMaxLength}
+                placeholder="Введите название категории"
                 aria-invalid={Boolean(error)}
             />
-            {error && (
-                <div className="invalid-feedback d-block">{error}</div>
-            )}
+            <div className="invalid-feedback d-block field-error-slot">
+                {error || '\u00A0'}
+            </div>
             <button
                 className="btn btn-primary mt-2"
                 onClick={handleSave}

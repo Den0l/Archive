@@ -2,10 +2,11 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Net.Mail;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
+using MimeKit;
 using WebApi.ApiDtos.Checkout;
 
 namespace WebApi.Services
@@ -22,36 +23,72 @@ namespace WebApi.Services
         public async Task SendReceiptAsync(string toEmail, string? toName, CheckoutRequest request)
         {
             var options = GetOptions();
-            var fromAddress = new MailAddress(options.FromEmail, options.FromName);
-            var toAddress = string.IsNullOrWhiteSpace(toName)
-                ? new MailAddress(toEmail)
-                : new MailAddress(toEmail, toName);
-
             var orderNumber = $"MH-{Guid.NewGuid():N}".Substring(0, 10).ToUpperInvariant();
             var issuedAt = DateTime.Now;
             var htmlBody = BuildReceiptHtml(request, orderNumber, issuedAt, options.BrandName, toName);
             var subject = $"{options.BrandName}: чек по заказу {orderNumber}";
-
-            using var message = new MailMessage(fromAddress, toAddress)
+            var senderDomain = options.FromEmail.Contains('@')
+                ? options.FromEmail.Split('@')[1]
+                : "localhost";
+            var message = new MimeMessage();
+            message.MessageId = MimeKit.Utils.MimeUtils.GenerateMessageId(senderDomain);
+            message.From.Add(CreateMailboxAddress(options.FromEmail, options.FromName));
+            message.To.Add(CreateMailboxAddress(toEmail, toName));
+            message.Subject = subject;
+            message.Body = new BodyBuilder
             {
-                Subject = subject,
-                Body = htmlBody,
-                IsBodyHtml = true,
-                BodyEncoding = Encoding.UTF8,
-                SubjectEncoding = Encoding.UTF8
-            };
+                HtmlBody = htmlBody,
+                TextBody = HtmlToPlainText(htmlBody)
+            }.ToMessageBody();
 
-            using var client = new SmtpClient(options.Host, options.Port)
-            {
-                EnableSsl = options.EnableSsl
-            };
+            using var client = new MailKit.Net.Smtp.SmtpClient();
+            await client.ConnectAsync(options.Host, options.Port, GetSecureSocketOptions(options));
 
             if (!string.IsNullOrWhiteSpace(options.Username))
             {
-                client.Credentials = new NetworkCredential(options.Username, options.Password);
+                try
+                {
+                    await client.AuthenticateAsync(options.Username, options.Password ?? string.Empty);
+                }
+                catch (AuthenticationException exception)
+                {
+                    throw CreateSmtpAuthenticationException(options, exception);
+                }
             }
 
-            await client.SendMailAsync(message);
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+        }
+
+        private static string HtmlToPlainText(string html)
+        {
+            var text = Regex.Replace(html, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"</p>", "\n\n", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"</tr>", "\n", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"<[^>]+>", string.Empty);
+            text = WebUtility.HtmlDecode(text);
+            text = Regex.Replace(text, @"[ \t]+", " ");
+            text = Regex.Replace(text, @"(\s*\n\s*){3,}", "\n\n");
+            return text.Trim();
+        }
+
+        private static MailboxAddress CreateMailboxAddress(string email, string? name)
+        {
+            return string.IsNullOrWhiteSpace(name)
+                ? new MailboxAddress(string.Empty, email)
+                : new MailboxAddress(name, email);
+        }
+
+        private static SecureSocketOptions GetSecureSocketOptions(ReceiptEmailOptions options)
+        {
+            if (!options.EnableSsl)
+            {
+                return SecureSocketOptions.None;
+            }
+
+            return options.Port == 465
+                ? SecureSocketOptions.SslOnConnect
+                : SecureSocketOptions.StartTls;
         }
 
         private ReceiptEmailOptions GetOptions()
@@ -107,6 +144,24 @@ namespace WebApi.Services
             return bool.TryParse(raw, out var parsed) ? parsed : fallback;
         }
 
+        private static InvalidOperationException CreateSmtpAuthenticationException(
+            ReceiptEmailOptions options,
+            AuthenticationException exception)
+        {
+            var providerHint = IsMailRuHost(options.Host)
+                ? "Mail.ru требует пароль приложения. Сгенерируйте его в настройках безопасности Mail.ru и обновите SMTP_PASS."
+                : "Проверьте корректность SMTP_USER и SMTP_PASS.";
+            var message =
+                $"SMTP authentication failed for '{options.Host}' (user '{options.Username ?? "<empty>"}'). {providerHint}";
+            return new InvalidOperationException(message, exception);
+        }
+
+        private static bool IsMailRuHost(string host)
+        {
+            return !string.IsNullOrWhiteSpace(host) &&
+                   host.Contains("mail.ru", StringComparison.OrdinalIgnoreCase);
+        }
+
         private string BuildReceiptHtml(
             CheckoutRequest request,
             string orderNumber,
@@ -143,15 +198,15 @@ namespace WebApi.Services
   <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
   <title>Чек {orderNumber}</title>
 </head>
-<body style=""margin:0;background:#fff8e5;font-family:Arial, sans-serif;color:#000000;"">
+<body style=""margin:0;background:#fff8e5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Verdana,Arial,sans-serif;color:#333333;"">
   <table role=""presentation"" cellpadding=""0"" cellspacing=""0"" width=""100%"" style=""background:#fff8e5;padding:32px 16px;"">
     <tr>
       <td align=""center"">
-        <table role=""presentation"" cellpadding=""0"" cellspacing=""0"" width=""600"" style=""max-width:600px;background:#ffffff;border:3px solid #ff9900;box-shadow:6px 6px 0 #cc6600;"">
+        <table role=""presentation"" cellpadding=""0"" cellspacing=""0"" width=""600"" style=""max-width:600px;background:#ffffff;border:3px solid #ff9900;box-shadow:6px 6px 0 rgba(0,0,0,0.2);"">
           <tr>
-            <td style=""padding:24px 28px;background:linear-gradient(90deg,#ffcc66,#ffef99);"">
-              <div style=""font-size:20px;font-weight:700;color:#000099;"">{WebUtility.HtmlEncode(brandName)}</div>
-              <div style=""font-size:14px;color:#663300;"">Чек по заказу {orderNumber}</div>
+            <td style=""padding:20px 28px;background:#ffcc00;border-bottom:3px solid #ff6600;"">
+              <div style=""font-size:22px;font-weight:700;color:#000000;"">{WebUtility.HtmlEncode(brandName)}</div>
+              <div style=""margin-top:6px;font-size:14px;font-weight:600;color:#000099;"">Чек по заказу {orderNumber}</div>
             </td>
           </tr>
           <tr>
@@ -189,8 +244,8 @@ namespace WebApi.Services
             </td>
           </tr>
           <tr>
-            <td style=""padding:16px 28px;background:#fff1cc;color:#663300;font-size:12px;text-align:center;"">
-              {WebUtility.HtmlEncode(brandName)} • Спасибо, что выбираете нас
+            <td style=""padding:14px 28px;background:#ffffcc;border-top:2px solid #ff9900;color:#663300;font-size:12px;text-align:center;"">
+              {WebUtility.HtmlEncode(brandName)} &bull; Спасибо, что выбираете нас
             </td>
           </tr>
         </table>

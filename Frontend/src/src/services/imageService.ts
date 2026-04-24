@@ -1,14 +1,12 @@
-import api from './apiClient';
+import { deleteData, getData, postData } from './httpClient';
 import { Image, AddImageRequest } from '@/types/api/images';
 
 export const fetchImages = async (): Promise<Image[]> => {
-    const { data } = await api.get<Image[]>('/api/Images');
-    return data;
+    return getData<Image[]>('/api/Images');
 };
 
 export const fetchImageById = async (id: string): Promise<Image> => {
-    const { data } = await api.get<Image>(`/api/Images/${id}`);
-    return data;
+    return getData<Image>(`/api/Images/${id}`);
 };
 
 export const uploadImage = async (payload: AddImageRequest): Promise<Image> => {
@@ -16,13 +14,11 @@ export const uploadImage = async (payload: AddImageRequest): Promise<Image> => {
     formData.append('file', payload.file);
     formData.append('listingId', payload.listingId);
 
-    const { data } = await api.post<Image>('/api/Images/Upload', formData, {
+    return postData<Image, FormData>('/api/Images/Upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return data;
 };
 
 export const deleteImage = async (id: string): Promise<Image> => {
-    const { data } = await api.delete<Image>(`/api/Images/${id}`);
-    return data;
+    return deleteData<Image>(`/api/Images/${id}`);
 };

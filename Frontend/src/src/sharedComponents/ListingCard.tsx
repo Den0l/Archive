@@ -1,24 +1,32 @@
 ﻿'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Listing } from '@/types/api/listings';
+import { Listing, ListingStats } from '@/types/api/listings';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoriteContext';
 import { useAuth } from '@/context/AuthContext';
-import { deleteListing, fetchListingById, updateListing } from '@/services/listingService';
+import { useNotification } from '@/context/NotificationContext';
+import { updateListingArchive } from '@/services/listingService';
+import {
+    cancelOrder,
+    fetchPendingOrderByListing,
+} from '@/services/orderService';
+import { getApiErrorMessage } from '@/utils/validation';
 
 interface ListingCardProps {
     listing: Listing;
+    stats?: ListingStats;
     renderActions?: (listing: Listing) => React.ReactNode;
-    onListingUpdated?: () => void;
+    onListingUpdated?: () => void | Promise<void>;
 }
 
-export function ListingCard({ listing, renderActions, onListingUpdated }: ListingCardProps) {
+export function ListingCard({ listing, stats, renderActions, onListingUpdated }: ListingCardProps) {
     const router = useRouter();
     const { addItem, removeItem, isInCart } = useCart();
     const { addFavorite, removeFavorite, isFavorite } = useFavorites();
     const { user: currentUser } = useAuth();
+    const { addNotification } = useNotification();
     const imageUrl = listing.images[0]?.imageUrl || '/default-image.jpg';
     const createdDate = new Date(listing.createdAt);
     const formattedDate = createdDate.toLocaleDateString(undefined, {
@@ -29,8 +37,14 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
     const inCart = isInCart(listing.id);
     const inFavorites = isFavorite(listing.id);
     const isSold = listing.isSold;
-    const isArchived = listing.isArchived;
+    const [isArchived, setIsArchived] = useState(listing.isArchived);
+    const [ownerActionPending, setOwnerActionPending] = useState(false);
     const isOwner = currentUser?.id === listing.sellerId;
+    const isInactive = isArchived || isSold;
+
+    useEffect(() => {
+        setIsArchived(listing.isArchived);
+    }, [listing.isArchived]);
 
     const handleOpenListing = () => {
         router.push(`/listing/${listing.id}`);
@@ -51,6 +65,13 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
             removeItem(listing.id);
             return;
         }
+        if (isInactive) {
+            addNotification(
+                'Проданные и архивные объявления нельзя добавить в корзину.',
+                { level: 'warning' }
+            );
+            return;
+        }
         addItem({
             id: listing.id,
             title: listing.title,
@@ -67,63 +88,82 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
             removeFavorite(listing.id);
             return;
         }
+        if (isInactive) {
+            addNotification(
+                'Проданные и архивные объявления нельзя добавить в избранное.',
+                { level: 'warning' }
+            );
+            return;
+        }
         addFavorite({
             id: listing.id,
             title: listing.title,
             price: listing.price,
             imageUrl,
             isSold: listing.isSold,
+            isArchived: listing.isArchived,
         });
-    };
-
-    const handleDeleteClick = async (
-        event: React.MouseEvent<HTMLButtonElement>
-    ) => {
-        event.stopPropagation();
-        if (!window.confirm('Вы уверены, что хотите удалить это объявление?')) {
-            return;
-        }
-        try {
-            await deleteListing(listing.id);
-            router.refresh();
-        } catch (error) {
-            console.error('Не удалось удалить объявление', error);
-        }
     };
 
     const handleToggleArchive = async (
         event: React.MouseEvent<HTMLButtonElement>
     ) => {
         event.stopPropagation();
+        if (ownerActionPending) {
+            return;
+        }
+
+        const nextIsArchived = !isArchived;
+        setOwnerActionPending(true);
         try {
-            const full = await fetchListingById(listing.id);
-            await updateListing(listing.id, {
-                title: full.title,
-                description: full.description,
-                price: full.price,
-                stateOfItemId: full.stateOfItem.id,
-                categoryId: full.category.id,
-                cityId: full.city.id,
-                propertyValueSelection:
-                    full.selectedListingPropertyValues?.map((value) => ({
-                        listingPropertyId: value.listingProperty.id,
-                        selectedListingPropertyValueId: value.id,
-                    })) ?? [],
-                isSold: full.isSold,
-                isArchived: !full.isArchived,
+            const updatedListing = await updateListingArchive(listing.id, {
+                isArchived: nextIsArchived,
             });
-            if (onListingUpdated) {
-                onListingUpdated();
-            }
+            setIsArchived(updatedListing.isArchived);
+            await onListingUpdated?.();
             router.refresh();
         } catch (error) {
             console.error('Не удалось изменить статус архива', error);
+            addNotification(
+                getApiErrorMessage(error, 'Не удалось изменить статус архива.'),
+                { level: 'error', importance: 'high' }
+            );
+        } finally {
+            setOwnerActionPending(false);
+        }
+    };
+
+    const handleCancelSale = async (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (ownerActionPending || !isSold) {
+            return;
+        }
+
+        setOwnerActionPending(true);
+        try {
+            const pendingOrder = await fetchPendingOrderByListing(listing.id);
+            await cancelOrder(pendingOrder.id);
+            addNotification('Продажа отменена.', {
+                level: 'success',
+            });
+            await onListingUpdated?.();
+            router.refresh();
+        } catch (error) {
+            console.error('Не удалось отменить продажу', error);
+            addNotification(
+                getApiErrorMessage(error, 'Не удалось отменить продажу.'),
+                { level: 'error', importance: 'high' }
+            );
+        } finally {
+            setOwnerActionPending(false);
         }
     };
 
     return (
         <div
-            className="card-product listing-card h-100"
+            className={`card-product listing-card h-100 ${
+                isInactive ? 'listing-card--inactive' : ''
+            }`}
             role="link"
             tabIndex={0}
             onClick={handleOpenListing}
@@ -144,14 +184,18 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
                 <small className="mb-2">
                     Опубликовано {formattedDate}
                 </small>
-                <p className="card-text description-clamp flex-grow-1">
-                    {listing.description}
-                </p>
                 <p className="card-text price-text">
-                    ₽{listing.price.toFixed(2)}
+                    ₽{Math.round(listing.price)}
                 </p>
+                {isOwner && stats && (
+                    <div className="listing-card-stats">
+                        <span title="Просмотры">👁 {stats.viewCount}</span>
+                        <span title="В избранном">❤ {stats.favoriteCount}</span>
+                        <span title="В корзине">🛒 {stats.cartCount}</span>
+                    </div>
+                )}
                 <div className="listing-card-cta">
-                    {!isOwner && (
+                    {!isOwner && !isSold && (
                         <>
                             <button
                                 type="button"
@@ -159,6 +203,7 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
                                     inCart ? 'btn-secondary' : 'btn-primary'
                                 } cart-button`}
                                 onClick={handleCartClick}
+                                disabled={!inCart && isInactive}
                             >
                                 {inCart ? 'В корзине' : 'В корзину'}
                             </button>
@@ -173,6 +218,7 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
                                         ? 'Убрать из избранного'
                                         : 'Добавить в избранное'
                                 }
+                                disabled={!inFavorites && isInactive}
                             >
                                 ❤
                             </button>
@@ -181,10 +227,19 @@ export function ListingCard({ listing, renderActions, onListingUpdated }: Listin
                     {isOwner && (
                         <button
                             type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={handleToggleArchive}
+                            className="btn btn-sm btn-outline-secondary listing-action-btn"
+                            onClick={isSold ? handleCancelSale : handleToggleArchive}
+                            disabled={ownerActionPending}
                         >
-                            {isArchived ? 'Разархивировать' : 'В архив'}
+                            {ownerActionPending
+                                ? isSold
+                                    ? 'Отмена...'
+                                    : 'Сохранение...'
+                                : isSold
+                                  ? 'Отменить'
+                                  : isArchived
+                                    ? 'Разархивировать'
+                                    : 'В архив'}
                         </button>
                     )}
                 </div>

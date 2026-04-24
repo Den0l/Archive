@@ -2,7 +2,6 @@ using Application.Interfaces.Repositories;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using WebApi.ApiDtos.Cart;
 
 namespace WebApi.Controllers
@@ -10,7 +9,7 @@ namespace WebApi.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CartController : ControllerBase
+    public class CartController : AuthorizedControllerBase
     {
         private readonly ICartRepository cartRepository;
         private readonly IMapper mapper;
@@ -24,7 +23,7 @@ namespace WebApi.Controllers
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var items = await cartRepository.GetByUserIdAsync(userId);
@@ -48,7 +47,7 @@ namespace WebApi.Controllers
             if (request == null || request.ListingId == Guid.Empty || request.Quantity <= 0)
                 return BadRequest("Invalid cart item request.");
 
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var item = await cartRepository.AddItemAsync(userId, request.ListingId, request.Quantity);
@@ -64,7 +63,7 @@ namespace WebApi.Controllers
             if (listingId == Guid.Empty || request == null || request.Quantity <= 0)
                 return BadRequest("Quantity must be greater than zero.");
 
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var item = await cartRepository.UpdateQuantityAsync(userId, listingId, request.Quantity);
@@ -80,7 +79,7 @@ namespace WebApi.Controllers
             if (listingId == Guid.Empty)
                 return BadRequest("Invalid listing id.");
 
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var removed = await cartRepository.RemoveItemAsync(userId, listingId);
@@ -93,18 +92,12 @@ namespace WebApi.Controllers
         [HttpDelete]
         public async Task<IActionResult> Clear()
         {
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             await cartRepository.ClearAsync(userId);
             return NoContent();
         }
 
-        private bool TryGetUserId(out Guid userId)
-        {
-            userId = Guid.Empty;
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return !string.IsNullOrEmpty(userIdString) && Guid.TryParse(userIdString, out userId);
-        }
     }
 }

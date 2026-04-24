@@ -1,23 +1,56 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoriteContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { confirmCheckout } from '@/services/checkoutService';
+import { fetchUserSettings } from '@/services/settingsService';
+import { getApiErrorMessage } from '@/utils/validation';
 import styles from './CartPage.module.css';
 
 export type CartTab = 'cart' | 'favorites';
+const EMAIL_CONFIRMATION_REQUIRED_ERROR = 'EMAIL_CONFIRMATION_REQUIRED';
 
 export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
-    const { items, totalItems, totalPrice, removeItem, clearCart } = useCart();
+    const {
+        items,
+        totalItems,
+        totalPrice,
+        addItem,
+        removeItem,
+        clearCart,
+        isInCart,
+    } = useCart();
     const { items: favoriteItems, removeFavorite } = useFavorites();
     const { user } = useAuth();
+    const { addNotification } = useNotification();
     const [checkoutStatus, setCheckoutStatus] = useState<
         'idle' | 'sending' | 'success' | 'error'
     >('idle');
-    const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+    const [checkoutMessage, setCheckoutMessage] = useState<ReactNode>(null);
+
+    const showEmailConfirmationRequired = () => {
+        const notificationMessage =
+            'Перед оформлением заказа подтвердите e-mail в настройках профиля.';
+
+        setCheckoutStatus('error');
+        setCheckoutMessage(
+            <>
+                Перед оформлением заказа подтвердите e-mail в{' '}
+                <Link href="/user/settings" className={styles.noticeLink}>
+                    настройках профиля
+                </Link>
+                .
+            </>
+        );
+        addNotification(notificationMessage, {
+            level: 'warning',
+            importance: 'high',
+        });
+    };
 
     const handleCheckout = async () => {
         if (!user) {
@@ -31,6 +64,12 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
         setCheckoutMessage(null);
 
         try {
+            const settings = await fetchUserSettings();
+            if (!settings.emailConfirmed) {
+                showEmailConfirmationRequired();
+                return;
+            }
+
             await confirmCheckout({
                 items: items.map((item) => ({
                     listingId: item.id,
@@ -46,8 +85,18 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
             setCheckoutMessage('Чек отправлен на вашу почту. Корзина очищена.');
         } catch (error) {
             console.error('Failed to send receipt', error);
+
+            const apiMessage = getApiErrorMessage(
+                error,
+                'Не удалось отправить чек. Попробуйте позже.'
+            );
+            if (apiMessage === EMAIL_CONFIRMATION_REQUIRED_ERROR) {
+                showEmailConfirmationRequired();
+                return;
+            }
+
             setCheckoutStatus('error');
-            setCheckoutMessage('Не удалось отправить чек. Попробуйте позже.');
+            setCheckoutMessage(apiMessage);
         }
     };
 
@@ -64,7 +113,7 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
         }
 
         return (
-            <div className={styles.cartLayout}>
+            <div className={`${styles.cartLayout} ${styles.cartLayoutWithSummary}`}>
                 <div className={styles.itemsColumn}>
                     {items.map((item) => (
                         <div key={item.id} className={styles.cartItem}>
@@ -83,7 +132,7 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
                                 </Link>
                                 <div className={styles.itemMeta}>
                                     <span>Цена:</span>
-                                    <span>₽{item.price.toFixed(2)}</span>
+                                    <span>₽{Math.round(item.price)}</span>
                                 </div>
                             </div>
                             <div className={styles.itemActions}>
@@ -107,7 +156,7 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
                         </div>
                         <div className={styles.summaryRow}>
                             <span>Итого</span>
-                            <span>₽{totalPrice.toFixed(2)}</span>
+                            <span>₽{Math.round(totalPrice)}</span>
                         </div>
                         <button
                             type="button"
@@ -166,6 +215,9 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
                             {item.isSold && (
                                 <div className={styles.soldRibbon}>Продано</div>
                             )}
+                            {!item.isSold && item.isArchived && (
+                                <div className={styles.soldRibbon}>Архив</div>
+                            )}
                             <Link
                                 href={`/listing/${item.id}`}
                                 className={styles.itemImage}
@@ -181,13 +233,52 @@ export default function CartPageClient({ activeTab }: { activeTab: CartTab }) {
                                 </Link>
                                 <div className={styles.itemMeta}>
                                     <span>Цена:</span>
-                                    <span>₽{item.price.toFixed(2)}</span>
+                                    <span>₽{Math.round(item.price)}</span>
                                 </div>
                             </div>
                             <div className={styles.itemActions}>
+                                {(() => {
+                                    const canAddToCart =
+                                        !item.isSold && !item.isArchived;
+                                    const inCart = isInCart(item.id);
+                                    return (
+                                        <button
+                                            type="button"
+                                            className={`btn ${
+                                                inCart
+                                                    ? 'btn-secondary'
+                                                    : 'btn-primary'
+                                            }`}
+                                            onClick={() => {
+                                                if (inCart) {
+                                                    removeItem(item.id);
+                                                    return;
+                                                }
+                                                if (!canAddToCart) {
+                                                    addNotification(
+                                                        'Проданные и архивные объявления нельзя добавить в корзину.',
+                                                        {
+                                                            level: 'warning',
+                                                        }
+                                                    );
+                                                    return;
+                                                }
+                                                addItem({
+                                                    id: item.id,
+                                                    title: item.title,
+                                                    price: item.price,
+                                                    imageUrl: item.imageUrl,
+                                                });
+                                            }}
+                                            disabled={!inCart && !canAddToCart}
+                                        >
+                                            {inCart ? 'В корзине' : 'В корзину'}
+                                        </button>
+                                    );
+                                })()}
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-danger"
                                     onClick={() => removeFavorite(item.id)}
                                 >
                                     Удалить

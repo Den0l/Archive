@@ -6,11 +6,11 @@ import React, {
     useContext,
     ReactNode,
 } from 'react';
-import styles from './page.module.css';
 import { decodeToken, removeToken, saveToken } from '@/services/tokenService';
 import { loginUser } from '@/services/authService';
 import { LoginResponse } from '@/types/api/auth';
 import { useRouter } from 'next/navigation';
+import { requireContext } from '@/context/contextUtils';
 
 interface AuthUser {
     id: string;
@@ -18,10 +18,14 @@ interface AuthUser {
     roles: string[];
 }
 
+interface LoginResult {
+    mustChangePassword: boolean;
+}
+
 interface AuthContextType {
     user: AuthUser | null;
     loading: boolean;
-    login: (username: string, password: string) => Promise<void>;
+    login: (username: string, password: string) => Promise<LoginResult>;
     logout: () => void;
 }
 
@@ -44,7 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
     }, []);
 
-    const login = async (username: string, password: string) => {
+    const login = async (username: string, password: string): Promise<LoginResult> => {
         const res: LoginResponse = await loginUser({ username, password });
         saveToken(res.jwtToken);
         const payload = decodeToken();
@@ -56,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
             router.push('/');
         }
+        return { mustChangePassword: res.mustChangePassword };
     };
 
     const logout = () => {
@@ -72,7 +77,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = (): AuthContextType => {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error('useAuth must be used within AuthProvider');
-    return context;
+    return requireContext(useContext(AuthContext), 'useAuth', 'AuthProvider');
 };

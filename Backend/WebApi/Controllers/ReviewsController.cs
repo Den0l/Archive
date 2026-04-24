@@ -12,6 +12,7 @@ using System.Security.Claims;
 using WebApi.ApiDtos;
 using WebApi.ApiDtos.Listings;
 using WebApi.ApiDtos.Reviews;
+using WebApi.Services;
 
 namespace WebApi.Controllers
 {
@@ -22,12 +23,18 @@ namespace WebApi.Controllers
         private readonly IReviewRepository reviewRepository;
         private readonly IMapper mapper;
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly ISystemUserProvider systemUserProvider;
 
-        public ReviewsController(IReviewRepository reviewRepository, IMapper mapper, UserManager<ApplicationUser> userManager)
+        public ReviewsController(
+            IReviewRepository reviewRepository,
+            IMapper mapper,
+            UserManager<ApplicationUser> userManager,
+            ISystemUserProvider systemUserProvider)
         {
             this.reviewRepository = reviewRepository;
             this.mapper = mapper;
             this.userManager = userManager;
+            this.systemUserProvider = systemUserProvider;
         }
 
         [HttpPost]
@@ -37,6 +44,10 @@ namespace WebApi.Controllers
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
                 return Unauthorized();
+
+            var systemUser = await systemUserProvider.GetSystemUserAsync();
+            if (request.RevieweeId == systemUser.Id)
+                return BadRequest("Нельзя оставить отзыв системному пользователю.");
 
             var domain = mapper.Map<Review>(request);
             domain.ReviewerId = userId;

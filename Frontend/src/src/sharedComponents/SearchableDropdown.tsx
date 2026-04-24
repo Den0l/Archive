@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeSingleLine } from '@/utils/validation';
+import { useClickOutside } from '@/sharedComponents/hooks/useClickOutside';
 
 interface SearchableDropdownProps {
     options: { id: string; name: string }[];
@@ -25,7 +26,7 @@ export default function SearchableDropdown({
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const selected = useMemo(
-        () => options.find((o) => o.id === selectedId),
+        () => options.find((option) => option.id === selectedId),
         [options, selectedId]
     );
 
@@ -35,20 +36,11 @@ export default function SearchableDropdown({
         }
     }, [selected?.name]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (
-                wrapperRef.current &&
-                !wrapperRef.current.contains(event.target as Node)
-            ) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
+    const closeDropdown = useCallback(() => {
+        setIsOpen(false);
     }, []);
+
+    useClickOutside(wrapperRef, closeDropdown);
 
     const filteredOptions = useMemo(() => {
         const normalized = normalizeSingleLine(inputValue).toLowerCase();
@@ -90,14 +82,13 @@ export default function SearchableDropdown({
                 className={`form-control ${isInvalid ? 'is-invalid' : ''}`}
                 value={inputValue}
                 placeholder={placeholder || 'Выберите...'}
-                onChange={(e) => {
-                    setInputValue(e.target.value);
+                onChange={(event) => {
+                    setInputValue(event.target.value);
                     setIsOpen(true);
                 }}
                 onFocus={() => setIsOpen(true)}
                 onClick={() => setIsOpen(true)}
                 onBlur={handleBlur}
-                aria-expanded={isOpen}
             />
 
             {isOpen && (
@@ -106,7 +97,6 @@ export default function SearchableDropdown({
                     style={{
                         zIndex: 1000,
                         borderRadius: '0.375rem',
-                        overflow: 'hidden',
                     }}
                 >
                     {filteredOptions.length > 0 ? (
@@ -115,7 +105,7 @@ export default function SearchableDropdown({
                                 key={option.id}
                                 className="list-group-product list-group-item-action"
                                 style={{ cursor: 'pointer' }}
-                                onMouseDown={(e) => e.preventDefault()}
+                                onMouseDown={(event) => event.preventDefault()}
                                 onClick={() =>
                                     handleSelect(option.id, option.name)
                                 }

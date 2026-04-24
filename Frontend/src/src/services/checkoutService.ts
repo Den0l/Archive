@@ -1,8 +1,8 @@
-import api from './apiClient';
+import { postVoid } from './httpClient';
 import { CheckoutRequest } from '@/types/api/checkout';
 
 export const confirmCheckout = async (
     payload: CheckoutRequest
 ): Promise<void> => {
-    await api.post('/api/Checkout/confirm', payload);
+    await postVoid<CheckoutRequest>('/api/Checkout/confirm', payload);
 };

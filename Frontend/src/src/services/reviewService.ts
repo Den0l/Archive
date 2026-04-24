@@ -1,4 +1,4 @@
-import api from './apiClient';
+import { deleteVoid, getData, postData } from './httpClient';
 import { CreateReviewRequest, Review } from '@/types/api/reviews';
 import { Page } from '@/types/api/page';
 
@@ -7,20 +7,18 @@ export const fetchReviewsByReviewee = async (
     pageNumber = 1,
     pageSize = 20
 ): Promise<Page<Review>> => {
-    const { data } = await api.get<Page<Review>>(
+    return getData<Page<Review>>(
         `/api/Reviews/byReviewee/${revieweeId}`,
         { params: { pageNumber, pageSize } }
     );
-    return data;
 };
 
 export const createReview = async (
     payload: CreateReviewRequest
 ): Promise<Review> => {
-    const { data } = await api.post<Review>('/api/Reviews', payload);
-    return data;
+    return postData<Review, CreateReviewRequest>('/api/Reviews', payload);
 };
 
 export const deleteReview = async (id: string): Promise<void> => {
-    await api.delete(`/api/Reviews/${id}`);
+    await deleteVoid(`/api/Reviews/${id}`);
 };

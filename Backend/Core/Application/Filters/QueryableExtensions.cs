@@ -79,6 +79,10 @@ namespace Application.Filters
             {
                 query = query.Where(l => l.SellerId == filter.SellerId.Value);
             }
+            if (filter.ExcludeSellerId.HasValue)
+            {
+                query = query.Where(l => l.SellerId != filter.ExcludeSellerId.Value);
+            }
             return query;
         }
 
@@ -141,6 +145,7 @@ namespace Application.Filters
                 .FilterByPrice(filter)
                 .FilterByStateOfItem(filter)
                 .FilterByAvailability(filter)
+                .FilterBySeller(filter)
                 .FilterByProperties(filter, categoryProperties)
                 .FilterByRadius(filter, chosenCity)
             	.ApplyOrdering(filter);

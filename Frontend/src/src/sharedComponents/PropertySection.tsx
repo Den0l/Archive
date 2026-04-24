@@ -25,7 +25,7 @@ export default function PropertySection({
                 <span className="ms-2">{open ? '▾' : '▸'}</span>
             </h5>
             {open && (
-                <div className="ps-4">
+                <div className="filter-property-values">
                     {values.map((v) => (
                         <div
                             key={v.id}

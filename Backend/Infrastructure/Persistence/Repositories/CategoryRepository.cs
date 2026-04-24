@@ -100,6 +100,40 @@ namespace Infrastructure.Persistence.Repositories {
         /// Null if the Category with the given id was not found.
         /// Otherwise returns the just deleted object. 
         /// </returns>
+        /// <summary>
+        /// Collects all listings that belong to the given category and any of its descendant
+        /// categories. Useful when deleting a category so callers can notify affected sellers.
+        /// </summary>
+        /// <param name="categoryId">Id of the root category to collect listings from.</param>
+        /// <returns>Flat list of listings across the whole subtree.</returns>
+        public async Task<List<Listing>> GetDescendantListingsAsync(Guid categoryId)
+        {
+            var result = new List<Listing>();
+
+            async Task Collect(Guid currentId)
+            {
+                var category = await dbContext.Categories
+                    .Include(c => c.Listings)
+                    .Include(c => c.ChildrenCategories)
+                    .FirstOrDefaultAsync(c => c.Id == currentId);
+                if (category == null)
+                {
+                    return;
+                }
+                if (category.Listings != null)
+                {
+                    result.AddRange(category.Listings);
+                }
+                foreach (var child in category.ChildrenCategories)
+                {
+                    await Collect(child.Id);
+                }
+            }
+
+            await Collect(categoryId);
+            return result;
+        }
+
         public async Task<Category?> DeleteAsync(Guid id) {
 			var existing = await dbContext.Categories
 				.Include(x => x.Listings)
@@ -110,7 +144,8 @@ namespace Infrastructure.Persistence.Repositories {
 			if (existing == null) {
 				return null;
 			}
-			foreach(var listing in existing.Listings)
+			var listingsToDelete = existing.Listings?.ToList() ?? new List<Listing>();
+			foreach (var listing in listingsToDelete)
 			{
 				await listingRepository.DeleteAsync(listing.Id);
 			}

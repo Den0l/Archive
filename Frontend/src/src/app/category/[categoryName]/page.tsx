@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FilterPanel } from '@/sharedComponents/FilterPanel';
 import { ListingGrid } from '@/sharedComponents/ListingGrid';
@@ -9,8 +9,8 @@ import { ListingFilter } from '@/types/api/categories';
 import { Ordering, OrderingDirection } from '@/types/api/categories';
 import { Page } from '@/types/api/page';
 import { fetchListingsByCategoryName } from '@/services/categoryService';
-import { deleteListing } from '@/services/listingService';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 
 export default function CategoryPage({
     params,
@@ -19,6 +19,7 @@ export default function CategoryPage({
 }) {
     const router = useRouter();
     const { user: currentUser } = useAuth();
+    const { addNotification } = useNotification();
     const { categoryName } = params;
 
     const [filter, setFilter] = useState<ListingFilter>({
@@ -39,45 +40,45 @@ export default function CategoryPage({
         items: [],
         totalPages: 1,
         pageNumber: 1,
-        pageSize: 30,
+        pageSize: 12,
     });
+
+    const effectiveFilter: ListingFilter = useMemo(
+        () => ({
+            ...filter,
+            sellerId: null,
+            excludeSellerId: currentUser?.id ?? null,
+        }),
+        [filter, currentUser?.id]
+    );
 
     useEffect(() => {
         const fetchListings = async () => {
             try {
                 const res = await fetchListingsByCategoryName(
                     categoryName,
-                    filter,
+                    effectiveFilter,
                     pageNumber,
                     pageData.pageSize
                 );
                 setPageData(res);
             } catch (err) {
                 console.error('Failed to load listings', err);
+                addNotification('Не удалось загрузить объявления категории.', {
+                    level: 'error',
+                    importance: 'high',
+                });
             }
         };
 
         fetchListings();
-    }, [categoryName, filter, pageNumber, pageData.pageSize]);
-
-    const handleDeleteListing = async (listingId: string) => {
-        if (!window.confirm('Вы уверены, что хотите удалить это объявление?'))
-            return;
-        try {
-            await deleteListing(listingId);
-            const res = await fetchListingsByCategoryName(
-                categoryName,
-                filter,
-                pageNumber,
-                pageData.pageSize
-            );
-            setPageData(res);
-        } catch (err: any) {
-            alert(
-                err.response?.data?.message || 'Не удалось удалить объявление'
-            );
-        }
-    };
+    }, [
+        categoryName,
+        effectiveFilter,
+        pageNumber,
+        pageData.pageSize,
+        addNotification,
+    ]);
 
     return (
         <div className="main">
@@ -89,6 +90,15 @@ export default function CategoryPage({
                 <ListingGrid
                     page={pageData}
                     onPageChange={setPageNumber}
+                    onListingUpdated={async () => {
+                        const res = await fetchListingsByCategoryName(
+                            categoryName,
+                            effectiveFilter,
+                            pageNumber,
+                            pageData.pageSize
+                        );
+                        setPageData(res);
+                    }}
                     renderActions={
                         currentUser
                             ? (listing) =>
@@ -110,6 +120,7 @@ export default function CategoryPage({
             <aside className="sidebar">
                 <FilterPanel
                     categoryName={categoryName}
+                    mobileCategorySelectionEnabled
                     priceEnabled
                     stateOfItemEnabled
                     listingPropertiesEnabled

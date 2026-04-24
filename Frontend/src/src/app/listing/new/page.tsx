@@ -13,10 +13,17 @@ import { StateOfItem } from '@/types/api/stateOfItem';
 import { ListingPropertyDetail } from '@/types/api/listingProperties';
 import { CreateListingRequest } from '@/types/api/listings';
 import { uploadImage } from '@/services/imageService';
-import { createListing } from '@/services/listingService';
+import {
+    aiAutofillListing,
+    createListing,
+} from '@/services/listingService';
+import { removeBackgroundFromFile } from '@/services/backgroundRemovalService';
 import { useRouter } from 'next/navigation';
+import { useNotification } from '@/context/NotificationContext';
+import RequireAuth from '@/sharedComponents/RequireAuth';
 import CustomDropdown from '@/sharedComponents/CustomDropdown';
 import SearchableDropdown from '@/sharedComponents/SearchableDropdown';
+import EditablePhotoCard from '@/sharedComponents/EditablePhotoCard';
 import {
     IMAGE_UPLOAD_ACCEPT,
     getApiErrorMessage,
@@ -35,6 +42,7 @@ import {
     CategoryDropdownOption,
     flattenCategoryHierarchy,
 } from '@/utils/categoryOptions';
+import { resizeImageFilesIfNeeded } from '@/utils/imageResizing';
 
 type CreateListingFieldErrors = {
     title?: string;
@@ -47,7 +55,10 @@ type CreateListingFieldErrors = {
     photos?: string;
 };
 
-export default function CreateListing() {
+const AI_TOOLTIP_TEXT =
+    'Если по фото нельзя определить размер, материал, комплектность и другие детали, напишите это в описании перед запуском AI — он использует этот текст и не потеряет эти данные.';
+
+function CreateListingContent() {
     const [categories, setCategories] = useState<CategoryDropdownOption[]>([]);
     const [statesOfItem, setStatesOfItem] = useState<StateOfItem[]>([]);
     const [selectedStateOfItemId, setSelectedStateOfItemId] =
@@ -68,9 +79,19 @@ export default function CreateListing() {
     const [fieldErrors, setFieldErrors] = useState<CreateListingFieldErrors>(
         {}
     );
-    const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [aiAutofilling, setAiAutofilling] = useState(false);
+    const [showAiTooltip, setShowAiTooltip] = useState(false);
+    const [aiTooltipPosition, setAiTooltipPosition] = useState({
+        x: 0,
+        y: 0,
+    });
+    const [processingPhotos, setProcessingPhotos] = useState<Set<File>>(
+        new Set()
+    );
+    const [isPhotoGridExpanded, setIsPhotoGridExpanded] = useState(false);
     const router = useRouter();
+    const { addNotification } = useNotification();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -100,9 +121,22 @@ export default function CreateListing() {
         };
     }, [photos]);
 
-    const handleCategorySelect = async (categoryId: string) => {
+    const loadCategoryDetails = async (
+        categoryId: string,
+        propertyValues: { [propertyId: string]: string } = {}
+    ) => {
         setSelectedCategoryId(categoryId);
-        setSelectedPropertyValues({});
+
+        const category: CategoryDetail = await fetchCategoryById(categoryId);
+        setListingProperties(
+            category.listingProperties.filter(
+                (prop) => prop.listingPropertyValues.length > 0
+            )
+        );
+        setSelectedPropertyValues(propertyValues);
+    };
+
+    const handleCategorySelect = async (categoryId: string) => {
         setFieldErrors((prev) => ({
             ...prev,
             category: undefined,
@@ -110,9 +144,7 @@ export default function CreateListing() {
         }));
 
         try {
-            const category: CategoryDetail =
-                await fetchCategoryById(categoryId);
-            setListingProperties(category.listingProperties);
+            await loadCategoryDetails(categoryId);
         } catch (err) {
             console.error('Failed to load category details', err);
         }
@@ -126,28 +158,136 @@ export default function CreateListing() {
         setFieldErrors((prev) => ({ ...prev, properties: undefined }));
     };
 
-    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoChange = async (
+        e: React.ChangeEvent<HTMLInputElement>
+    ) => {
         if (!e.target.files) {
             return;
         }
 
+        const input = e.currentTarget;
         const fileArray = Array.from(e.target.files);
         const photoError = validateImageFiles(fileArray, photos.length);
 
         if (photoError) {
             setFieldErrors((prev) => ({ ...prev, photos: photoError }));
-            e.target.value = '';
+            input.value = '';
             return;
         }
 
-        setPhotos((prev) => [...prev, ...fileArray]);
-        setFieldErrors((prev) => ({ ...prev, photos: undefined }));
-        e.target.value = '';
+        try {
+            const normalizedFiles = await resizeImageFilesIfNeeded(fileArray);
+            setPhotos((prev) => [...prev, ...normalizedFiles]);
+            setFieldErrors((prev) => ({ ...prev, photos: undefined }));
+        } catch (error) {
+            console.error('Failed to prepare photos before upload', error);
+            addNotification(
+                getApiErrorMessage(
+                    error,
+                    'Не удалось подготовить фотографии. Попробуйте другие изображения.'
+                ),
+                { level: 'error', importance: 'high' }
+            );
+        } finally {
+            input.value = '';
+        }
     };
 
     const handleRemoveNewPhoto = (index: number) => {
         setPhotos((prev) => prev.filter((_, idx) => idx !== index));
         setFieldErrors((prev) => ({ ...prev, photos: undefined }));
+    };
+
+    const handleRemovePhotoBackground = async (index: number) => {
+        const sourcePhoto = photos[index];
+        if (!sourcePhoto || processingPhotos.has(sourcePhoto)) {
+            return;
+        }
+
+        try {
+            setProcessingPhotos((prev) => {
+                const next = new Set(prev);
+                next.add(sourcePhoto);
+                return next;
+            });
+            const processedPhoto = await removeBackgroundFromFile(sourcePhoto);
+            setPhotos((prev) =>
+                prev.map((photo) =>
+                    photo === sourcePhoto ? processedPhoto : photo
+                )
+            );
+        } catch (error) {
+            console.error('Failed to remove background from photo', error);
+            addNotification(
+                getApiErrorMessage(
+                    error,
+                    'Не удалось убрать фон с фотографии. Попробуйте другое изображение.'
+                ),
+                { level: 'error', importance: 'high' }
+            );
+        } finally {
+            setProcessingPhotos((prev) => {
+                const next = new Set(prev);
+                next.delete(sourcePhoto);
+                return next;
+            });
+        }
+    };
+
+    const applyAiAutofillResult = async (result: Awaited<ReturnType<typeof aiAutofillListing>>) => {
+        const nextPropertyValues = Object.fromEntries(
+            result.propertyValueSelection.map((selection) => [
+                selection.listingPropertyId,
+                selection.selectedListingPropertyValueId,
+            ])
+        );
+
+        await loadCategoryDetails(result.categoryId, nextPropertyValues);
+        setTitle(result.title);
+        setDescription(result.description);
+        setSelectedStateOfItemId(result.stateOfItemId);
+        setFieldErrors((prev) => ({
+            ...prev,
+            title: undefined,
+            description: undefined,
+            stateOfItem: undefined,
+            category: undefined,
+            properties: undefined,
+        }));
+
+        if (result.warnings.length > 0) {
+            addNotification(result.warnings.join(' '), {
+                level: 'warning',
+            });
+        }
+    };
+
+    const handleAiAutofill = async () => {
+        if (photos.length === 0 || aiAutofilling || processingPhotos.size > 0) {
+            return;
+        }
+
+        try {
+            setAiAutofilling(true);
+
+            const result = await aiAutofillListing({
+                descriptionHint: normalizeMultiline(description),
+                newImages: photos,
+            });
+
+            await applyAiAutofillResult(result);
+        } catch (error) {
+            console.error('Failed to autofill listing from AI', error);
+            addNotification(
+                getApiErrorMessage(
+                    error,
+                    'Не удалось заполнить объявление по фото. Попробуйте ещё раз.'
+                ),
+                { level: 'error', importance: 'high' }
+            );
+        } finally {
+            setAiAutofilling(false);
+        }
     };
 
     const validateForm = () => {
@@ -197,10 +337,12 @@ export default function CreateListing() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setFormError('');
 
         const validationResult = validateForm();
         if (validationResult.hasErrors) {
+            addNotification('Проверьте обязательные поля формы', {
+                level: 'warning',
+            });
             return;
         }
 
@@ -232,14 +374,18 @@ export default function CreateListing() {
                     })
                 )
             );
-            router.push('/');
+            addNotification('Объявление успешно создано.', {
+                level: 'success',
+            });
+            router.push(`/user/${created.sellerId}`);
         } catch (err) {
             console.error('Failed to create listing', err);
-            setFormError(
+            addNotification(
                 getApiErrorMessage(
                     err,
                     'Не удалось создать объявление, убедитесь, что вы заполнили все поля.'
-                )
+                ),
+                { level: 'error', importance: 'high' }
             );
         } finally {
             setSubmitting(false);
@@ -250,9 +396,9 @@ export default function CreateListing() {
         const lowered = name.toLowerCase();
         return lowered.includes('бренд') || lowered.includes('brand');
     };
-    const ValidationErrorMessage = ({ message }: { message: string }) => (
-        <div className="invalid-feedback d-block text-danger">
-            <span className="d-block">{message}</span>
+    const ValidationErrorMessage = ({ message }: { message?: string }) => (
+        <div className="invalid-feedback d-block text-danger field-error-slot">
+            <span className="d-block">{message || '\u00A0'}</span>
         </div>
     );
     const handlePriceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -281,11 +427,34 @@ export default function CreateListing() {
             return;
         }
 
-        if ((e.key === ',' || e.key === '.') && !priceInput.includes(',')) {
-            return;
-        }
-
         e.preventDefault();
+    };
+
+    const isAiButtonDisabled =
+        photos.length === 0 ||
+        submitting ||
+        aiAutofilling ||
+        processingPhotos.size > 0;
+    const shouldShowPhotoGridToggle = photos.length > 2;
+    const handleAiTooltipMouseEnter = (
+        event: React.MouseEvent<HTMLSpanElement>
+    ) => {
+        setAiTooltipPosition({
+            x: event.clientX + 14,
+            y: event.clientY + 14,
+        });
+        setShowAiTooltip(true);
+    };
+    const handleAiTooltipMouseMove = (
+        event: React.MouseEvent<HTMLSpanElement>
+    ) => {
+        setAiTooltipPosition({
+            x: event.clientX + 14,
+            y: event.clientY + 14,
+        });
+    };
+    const handleAiTooltipMouseLeave = () => {
+        setShowAiTooltip(false);
     };
 
     return (
@@ -293,20 +462,156 @@ export default function CreateListing() {
             <h1 className="mb-4">Создать новое объявление</h1>
 
             <form onSubmit={handleSubmit}>
-                <div className="form-alert-slot">
-                    {formError ? (
-                        <div className="alert alert-danger form-alert-message">
-                            {formError}
-                        </div>
-                    ) : (
-                        <div
-                            className="form-alert-message form-alert-placeholder"
-                            aria-hidden="true"
+                <div className="mb-3 d-flex justify-content-end">
+                    <span
+                        className="d-inline-block"
+                        onMouseEnter={handleAiTooltipMouseEnter}
+                        onMouseMove={handleAiTooltipMouseMove}
+                        onMouseLeave={handleAiTooltipMouseLeave}
+                    >
+                        <button
+                            type="button"
+                            className={`btn ${
+                                isAiButtonDisabled
+                                    ? 'btn-secondary'
+                                    : 'btn-outline-primary'
+                            }`}
+                            onClick={handleAiAutofill}
+                            disabled={isAiButtonDisabled}
+                            style={
+                                isAiButtonDisabled
+                                    ? {
+                                          pointerEvents: 'none',
+                                          opacity: 0.65,
+                                          cursor: 'not-allowed',
+                                      }
+                                    : undefined
+                            }
                         >
-                            &nbsp;
-                        </div>
-                    )}
+                            {aiAutofilling
+                                ? 'AI анализирует фото...'
+                                : 'Заполнить с AI'}
+                        </button>
+                        {showAiTooltip && (
+                            <div
+                                role="tooltip"
+                                style={{
+                                    position: 'fixed',
+                                    left: aiTooltipPosition.x,
+                                    top: aiTooltipPosition.y,
+                                    zIndex: 1080,
+                                    maxWidth: '300px',
+                                    padding: '6px 8px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(33, 37, 41, 0.95)',
+                                    color: '#fff',
+                                    fontSize: '0.75rem',
+                                    lineHeight: 1.35,
+                                    boxShadow:
+                                        '0 4px 12px rgba(0, 0, 0, 0.2)',
+                                    pointerEvents: 'none',
+                                }}
+                            >
+                                {AI_TOOLTIP_TEXT}
+                            </div>
+                        )}
+                    </span>
                 </div>
+
+                <div className="mb-4">
+                    <label className="form-label">
+                        Загрузить фото (макс. 10)
+                    </label>
+                    <div className="d-flex flex-column flex-md-row gap-2 align-items-md-end">
+                        <div className="flex-grow-1">
+                            <input
+                                type="file"
+                                className={`form-control file-input-fixed ${
+                                    fieldErrors.photos ? 'is-invalid' : ''
+                                }`}
+                                multiple
+                                accept={IMAGE_UPLOAD_ACCEPT}
+                                onChange={handlePhotoChange}
+                                aria-invalid={Boolean(fieldErrors.photos)}
+                            />
+                        </div>
+                    </div>
+
+                    <ValidationErrorMessage message={fieldErrors.photos} />
+
+                    <div className="form-text">
+                        Загружено фото: {photos.length}
+                    </div>
+                </div>
+
+                {photos.length > 0 && (
+                    <div className="mb-3">
+                        <label className="form-label">Добавленные фото</label>
+                        <div
+                            className={`photo-grid-expandable${
+                                isPhotoGridExpanded
+                                    ? ' photo-grid-expandable--expanded'
+                                    : ''
+                            }`}
+                        >
+                            <div className="photo-grid">
+                                {photos.map((file, index) => (
+                                    <EditablePhotoCard
+                                        key={`${file.name}-${index}`}
+                                        imageUrl={photoPreviews[index]}
+                                        imageAlt={file.name}
+                                        name={file.name}
+                                        isBusy={processingPhotos.has(file)}
+                                        disableActions={
+                                            submitting ||
+                                            aiAutofilling ||
+                                            processingPhotos.has(file)
+                                        }
+                                        onRemoveBackground={() =>
+                                            handleRemovePhotoBackground(index)
+                                        }
+                                        onRemove={() =>
+                                            handleRemoveNewPhoto(index)
+                                        }
+                                    />
+                                ))}
+                            </div>
+                            {shouldShowPhotoGridToggle && !isPhotoGridExpanded && (
+                                <div
+                                    className="photo-grid-expandable__fade"
+                                    aria-hidden="true"
+                                />
+                            )}
+                            {shouldShowPhotoGridToggle && (
+                                <button
+                                    type="button"
+                                    className="photo-grid-expandable__toggle"
+                                    onClick={() =>
+                                        setIsPhotoGridExpanded((prev) => !prev)
+                                    }
+                                    aria-expanded={isPhotoGridExpanded}
+                                    aria-label={
+                                        isPhotoGridExpanded
+                                            ? 'Свернуть фото'
+                                            : 'Показать все фото'
+                                    }
+                                >
+                                    <span
+                                        className={`photo-grid-expandable__arrow${
+                                            isPhotoGridExpanded
+                                                ? ' photo-grid-expandable__arrow--expanded'
+                                                : ''
+                                        }`}
+                                        aria-hidden="true"
+                                    >
+                                        ▾
+                                    </span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="mb-3">
                     <label
                         htmlFor="title"
@@ -321,7 +626,13 @@ export default function CreateListing() {
                             fieldErrors.title ? 'is-invalid' : ''
                         }`}
                         value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                        onChange={(e) => {
+                            setTitle(e.target.value);
+                            setFieldErrors((prev) => ({
+                                ...prev,
+                                title: undefined,
+                            }));
+                        }}
                         onBlur={() => {
                             const normalized = normalizeSingleLine(title);
                             setTitle(normalized);
@@ -334,12 +645,11 @@ export default function CreateListing() {
                         }}
                         minLength={VALIDATION_LIMITS.listingTitleMinLength}
                         maxLength={VALIDATION_LIMITS.listingTitleMaxLength}
+                        placeholder="Введите название объявления"
                         aria-invalid={Boolean(fieldErrors.title)}
                         required
                     />
-                    {fieldErrors.title && (
-                        <ValidationErrorMessage message={fieldErrors.title} />
-                    )}
+                    <ValidationErrorMessage message={fieldErrors.title} />
                 </div>
 
                 <div className="mb-3">
@@ -376,14 +686,13 @@ export default function CreateListing() {
                             }));
                         }}
                         onKeyDown={handlePriceKeyDown}
-                        inputMode="decimal"
-                        pattern="[0-9]+([,.][0-9]{1,2})?"
+                        inputMode="numeric"
+                        pattern="[0-9]+"
+                        placeholder="Введите цену"
                         aria-invalid={Boolean(fieldErrors.price)}
                         required
                     />
-                    {fieldErrors.price && (
-                        <ValidationErrorMessage message={fieldErrors.price} />
-                    )}
+                    <ValidationErrorMessage message={fieldErrors.price} />
                 </div>
                 <div className="mb-3">
                     <label
@@ -399,7 +708,13 @@ export default function CreateListing() {
                         }`}
                         rows={4}
                         value={description}
-                        onChange={(e) => setDescription(e.target.value)}
+                        onChange={(e) => {
+                            setDescription(e.target.value);
+                            setFieldErrors((prev) => ({
+                                ...prev,
+                                description: undefined,
+                            }));
+                        }}
                         onBlur={() => {
                             const normalized = normalizeMultiline(description);
                             setDescription(normalized);
@@ -410,26 +725,22 @@ export default function CreateListing() {
                                     undefined,
                             }));
                         }}
-                        minLength={
-                            VALIDATION_LIMITS.listingDescriptionMinLength
-                        }
                         maxLength={
                             VALIDATION_LIMITS.listingDescriptionMaxLength
                         }
+                        placeholder="Введите описание"
                         aria-invalid={Boolean(fieldErrors.description)}
-                        required
                     />
-                    {fieldErrors.description && (
-                        <ValidationErrorMessage
-                            message={fieldErrors.description}
-                        />
-                    )}
+                    <ValidationErrorMessage
+                        message={fieldErrors.description}
+                    />
                 </div>
 
                 <div className="mb-3">
                     <label className="form-label">Город</label>
                     <CitySelector
                         selectedCityId={city?.id}
+                        placeholder="Выберите город"
                         validationError={fieldErrors.city}
                         onCitySelect={(selectedCity) => {
                             setCity(selectedCity);
@@ -459,11 +770,9 @@ export default function CreateListing() {
                         placeholder="Выберите состояние"
                         isInvalid={Boolean(fieldErrors.stateOfItem)}
                     />
-                    {fieldErrors.stateOfItem && (
-                        <ValidationErrorMessage
-                            message={fieldErrors.stateOfItem}
-                        />
-                    )}
+                    <ValidationErrorMessage
+                        message={fieldErrors.stateOfItem}
+                    />
                 </div>
 
                 <div className="mb-3">
@@ -479,11 +788,9 @@ export default function CreateListing() {
                         placeholder="Выберите категорию"
                         isInvalid={Boolean(fieldErrors.category)}
                     />
-                    {fieldErrors.category && (
-                        <ValidationErrorMessage
-                            message={fieldErrors.category}
-                        />
-                    )}
+                    <ValidationErrorMessage
+                        message={fieldErrors.category}
+                    />
                 </div>
 
                 {listingProperties.length > 0 && (
@@ -515,7 +822,9 @@ export default function CreateListing() {
                                                     valId
                                                 )
                                             }
-                                            placeholder={`Введите ${prop.name}`}
+                                            placeholder={
+                                                `Введите ${prop.name}`
+                                            }
                                             searchPlaceholder="Нет совпадений."
                                             isInvalid={isPropInvalid}
                                         />
@@ -533,87 +842,39 @@ export default function CreateListing() {
                                                     valId
                                                 )
                                             }
-                                            placeholder={`Выберите ${prop.name}`}
+                                            placeholder={
+                                                `Выберите ${prop.name}`
+                                            }
                                             isInvalid={isPropInvalid}
                                         />
                                     );
                                 })()}
                             </div>
                         ))}
-                        {fieldErrors.properties && (
-                            <ValidationErrorMessage
-                                message={fieldErrors.properties}
-                            />
-                        )}
+                        <ValidationErrorMessage
+                            message={fieldErrors.properties}
+                        />
                     </div>
                 )}
 
-                <div className="mb-3">
-                    <label className="form-label">
-                        Загрузить фото (макс. 20)
-                    </label>
-                    <input
-                        type="file"
-                        className={`form-control file-input-fixed ${
-                            fieldErrors.photos ? 'is-invalid' : ''
-                        }`}
-                        multiple
-                        accept={IMAGE_UPLOAD_ACCEPT}
-                        onChange={handlePhotoChange}
-                        aria-invalid={Boolean(fieldErrors.photos)}
-                    />
-
-                    {fieldErrors.photos && (
-                        <ValidationErrorMessage message={fieldErrors.photos} />
-                    )}
-
-                    <div className="form-text">
-                        Загружено фото: {photos.length}
-                    </div>
+                <div className="d-flex justify-content-center">
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={submitting || aiAutofilling}
+                    >
+                        {submitting ? 'Публикация...' : 'Опубликовать'}
+                    </button>
                 </div>
-
-                {photos.length > 0 && (
-                    <div className="mb-3">
-                        <label className="form-label">Добавленные фото</label>
-                        <div className="d-flex flex-wrap gap-2">
-                            {photos.map((file, index) => (
-                                <div
-                                    key={`${file.name}-${index}`}
-                                    className="photo-card"
-                                >
-                                    {photoPreviews[index] && (
-                                        <img
-                                            src={photoPreviews[index]}
-                                            alt={file.name}
-                                            className="photo-card__image"
-                                        />
-                                    )}
-                                    <div className="small text-truncate text-center photo-card__name">
-                                        {file.name}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline-danger btn-sm mt-2 photo-card__button"
-                                        onClick={() =>
-                                            handleRemoveNewPhoto(index)
-                                        }
-                                    >
-                                        Удалить
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <button
-                    type="submit"
-                    className="btn btn-primary w-100"
-                    disabled={submitting}
-                >
-                    {submitting ? 'Публикация...' : 'Опубликовать'}
-                </button>
             </form>
         </div>
+    );
+}
+
+export default function CreateListing() {
+    return (
+        <RequireAuth>
+            <CreateListingContent />
+        </RequireAuth>
     );
 }

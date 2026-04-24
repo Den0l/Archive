@@ -16,10 +16,10 @@ export default function AdminPage(): JSX.Element {
 
     return (
         <RequireAdmin>
-            <div className="container-admin mt-5">
+            <div className="container-admin mt-5 admin-page">
                 <h1 className="text-center text-md-left mb-4">Администрирование</h1>
 
-                <ul className="nav nav-tabs mb-4">
+                <ul className="nav nav-tabs mb-4 admin-page__tabs">
                     <li className="nav-item">
                         <button
                             className={`nav-link ${activeTab === 'categories' ? 'active' : ''}`}

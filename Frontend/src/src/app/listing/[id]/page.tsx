@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr';
-import { ListingDetail } from '@/types/api/listings';
-import { fetchListingById, deleteListing } from '@/services/listingService';
+import { ListingDetail, ListingStats } from '@/types/api/listings';
+import { fetchListingById, deleteListing, fetchListingStats } from '@/services/listingService';
 import { createConversation } from '@/services/conversationService';
 import { cancelOrder, fetchPendingOrderByListing } from '@/services/orderService';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,8 @@ import { User } from '@/types/api/users';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoriteContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
+import { useConfirmDialog } from '@/context/ConfirmDialogContext';
 import {
     getApiErrorMessage,
     normalizeMultiline,
@@ -28,6 +30,8 @@ export default function ListingPage({ params }: { params: { id: string } }) {
     const { addItem, removeItem, isInCart } = useCart();
     const { addFavorite, removeFavorite, isFavorite } = useFavorites();
     const { user: currentUser } = useAuth();
+    const { addNotification } = useNotification();
+    const { confirm } = useConfirmDialog();
     const [listing, setListing] = useState<ListingDetail | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -42,6 +46,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
     const [messageText, setMessageText] = useState('');
     const [messageError, setMessageError] = useState('');
     const [ownerActionPending, setOwnerActionPending] = useState(false);
+    const [stats, setStats] = useState<ListingStats | null>(null);
 
     useEffect(() => {
         const fetchListing = async () => {
@@ -62,33 +67,45 @@ export default function ListingPage({ params }: { params: { id: string } }) {
     }, [id]);
 
     useEffect(() => {
+        if (!listing || !currentUser || currentUser.id !== listing.sellerId) return;
+        fetchListingStats(listing.id)
+            .then(setStats)
+            .catch(() => {});
+    }, [listing, currentUser]);
+
+    useEffect(() => {
+        let mounted = true;
+        const connection = new HubConnectionBuilder()
+            .withUrl(`${process.env.NEXT_PUBLIC_API_BASE_URL}/chathub`, {
+                accessTokenFactory: () => localStorage.getItem('token') || '',
+            })
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on(
+            'ReceiveMessage',
+            (senderId: string, message: unknown) => {
+                console.log('Message received:', senderId, message);
+            }
+        );
+
         const initHub = async () => {
-            const connection = new HubConnectionBuilder()
-                .withUrl(`${process.env.NEXT_PUBLIC_API_BASE_URL}/chathub`, {
-                    accessTokenFactory: () =>
-                        localStorage.getItem('token') || '',
-                })
-                .withAutomaticReconnect()
-                .build();
-
-            connection.on(
-                'ReceiveMessage',
-                (senderId: string, message: any) => {
-                    console.log('Message received:', senderId, message);
-                }
-            );
-
             try {
                 await connection.start();
-                setHubConnection(connection);
+                if (mounted) {
+                    setHubConnection(connection);
+                }
             } catch (err) {
-                console.error('SignalR ошибка подключения:', err);
+                console.error('SignalR connection error:', err);
             }
         };
 
-        initHub();
+        void initHub();
+
         return () => {
-            hubConnection?.stop();
+            mounted = false;
+            setHubConnection(null);
+            void connection.stop();
         };
     }, []);
 
@@ -146,14 +163,41 @@ export default function ListingPage({ params }: { params: { id: string } }) {
         }
     };
 
+    const handleCarouselNext = () => {
+        if (!listing || listing.images.length === 0) return;
+        setActiveImageIndex(
+            (prev) => (prev + 1) % listing.images.length
+        );
+    };
+
+    const handleCarouselPrev = () => {
+        if (!listing || listing.images.length === 0) return;
+        setActiveImageIndex(
+            (prev) =>
+                (prev - 1 + listing.images.length) % listing.images.length
+        );
+    };
+
     const inCart = listing ? isInCart(listing.id) : false;
     const inFavorites = listing ? isFavorite(listing.id) : false;
     const isOwner = listing ? currentUser?.id === listing.sellerId : false;
+    const isInactive = Boolean(listing?.isSold || listing?.isArchived);
+    const hasDescription = Boolean(listing?.description?.trim());
+    const descriptionText = hasDescription
+        ? listing?.description
+        : 'Описание у этого объявления отсутствует';
 
     const handleCartToggle = () => {
         if (!listing) return;
         if (inCart) {
             removeItem(listing.id);
+            return;
+        }
+        if (isInactive) {
+            addNotification(
+                'Проданные и архивные объявления нельзя добавить в корзину.',
+                { level: 'warning' }
+            );
             return;
         }
         addItem({
@@ -170,12 +214,20 @@ export default function ListingPage({ params }: { params: { id: string } }) {
             removeFavorite(listing.id);
             return;
         }
+        if (isInactive) {
+            addNotification(
+                'Проданные и архивные объявления нельзя добавить в избранное.',
+                { level: 'warning' }
+            );
+            return;
+        }
         addFavorite({
             id: listing.id,
             title: listing.title,
             price: listing.price,
             imageUrl: listing.images[0]?.imageUrl || '/default-image.jpg',
             isSold: listing.isSold,
+            isArchived: listing.isArchived,
         });
     };
 
@@ -186,11 +238,15 @@ export default function ListingPage({ params }: { params: { id: string } }) {
 
     const handleCancelSoldOrder = async () => {
         if (!listing || !listing.isSold) return;
-        if (
-            !window.confirm(
-                'Отменить заказ для проданного объявления и вернуть его в выдачу?'
-            )
-        ) {
+        const shouldCancel = await confirm({
+            title: 'Отмена продажи',
+            message:
+                'Отменить заказ для проданного объявления и вернуть его в выдачу?',
+            confirmText: 'Отменить заказ',
+            cancelText: 'Назад',
+            variant: 'danger',
+        });
+        if (!shouldCancel) {
             return;
         }
 
@@ -202,11 +258,12 @@ export default function ListingPage({ params }: { params: { id: string } }) {
             setListing(refreshedListing);
         } catch (error) {
             console.error('Не удалось отменить заказ по объявлению', error);
-            window.alert(
+            addNotification(
                 getApiErrorMessage(
                     error,
                     'Не удалось отменить заказ. Попробуйте ещё раз.'
-                )
+                ),
+                { level: 'error', importance: 'high' }
             );
         } finally {
             setOwnerActionPending(false);
@@ -215,27 +272,63 @@ export default function ListingPage({ params }: { params: { id: string } }) {
 
     const handleDeleteListing = async () => {
         if (!listing) return;
-        if (!window.confirm('Вы уверены, что хотите удалить это объявление?')) {
+        const shouldDelete = await confirm({
+            title: 'Удаление объявления',
+            message: 'Вы уверены, что хотите удалить это объявление?',
+            confirmText: 'Удалить',
+            cancelText: 'Отмена',
+            variant: 'danger',
+        });
+        if (!shouldDelete) {
             return;
         }
         try {
-            await deleteListing(listing.id);
-            if (currentUser?.id) {
-                router.push(`/user/${currentUser.id}`);
+            const deletedListing = await deleteListing(listing.id);
+            const profileUserId = deletedListing.sellerId || currentUser?.id;
+            addNotification('Объявление успешно удалено.', {
+                level: 'success',
+            });
+            if (profileUserId) {
+                router.push(`/user/${profileUserId}`);
             } else {
                 router.push('/');
             }
         } catch (error) {
             console.error('Не удалось удалить объявление', error);
+            addNotification(
+                getApiErrorMessage(error, 'Не удалось удалить объявление.'),
+                { level: 'error', importance: 'high' }
+            );
         }
     };
 
-    if (loading) return <div className="container mt-5">Загрузка...</div>;
+    if (loading) return <div className="page-loading-state">Загрузка</div>;
     if (!listing)
         return <div className="container mt-5">Объявление не найдено</div>;
 
     const mainImageIndex =
         listing.images.length > 0 ? activeImageIndex : null;
+    const hasMultipleImages = listing.images.length > 1;
+
+    const renderThumbnail = (
+        img: ListingDetail['images'][number],
+        idx: number
+    ) => (
+        <button
+            type="button"
+            key={img.id}
+            className={`${styles.thumbButton} ${
+                idx === mainImageIndex ? styles.thumbActive : ''
+            }`}
+            onClick={() => setActiveImageIndex(idx)}
+        >
+            <img
+                src={img.imageUrl}
+                alt={`${listing.title} ${idx + 1}`}
+                className={styles.thumbnail}
+            />
+        </button>
+    );
 
     return (
         <div className="container-list">
@@ -243,14 +336,42 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                 <div className={styles.mediaColumn}>
                     <div className={styles.mainImageWrapper}>
                         {mainImageIndex !== null ? (
-                            <img
-                                src={listing.images[mainImageIndex].imageUrl}
-                                alt={listing.title}
-                                className={styles.mainImage}
-                                onClick={() =>
-                                    setSelectedImageIndex(mainImageIndex)
-                                }
-                            />
+                            <>
+                                <img
+                                    src={listing.images[mainImageIndex].imageUrl}
+                                    alt={listing.title}
+                                    className={styles.mainImage}
+                                    onClick={() =>
+                                        setSelectedImageIndex(mainImageIndex)
+                                    }
+                                />
+                                {hasMultipleImages && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className={`${styles.carouselNav} ${styles.carouselNavPrev}`}
+                                            onClick={handleCarouselPrev}
+                                            aria-label="Предыдущее фото"
+                                        >
+                                            ‹
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`${styles.carouselNav} ${styles.carouselNavNext}`}
+                                            onClick={handleCarouselNext}
+                                            aria-label="Следующее фото"
+                                        >
+                                            ›
+                                        </button>
+                                        <div
+                                            className={styles.carouselCounter}
+                                            aria-live="polite"
+                                        >
+                                            {activeImageIndex + 1} / {listing.images.length}
+                                        </div>
+                                    </>
+                                )}
+                            </>
                         ) : (
                             <div className={styles.noImage}>
                                 Нет изображения
@@ -258,26 +379,11 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                         )}
                     </div>
 
-                    {listing.images.length > 1 && (
-                        <div className={styles.thumbRow}>
-                            {listing.images.map((img, idx) => (
-                                <button
-                                    type="button"
-                                    key={img.id}
-                                    className={`${styles.thumbButton} ${
-                                        idx === mainImageIndex
-                                            ? styles.thumbActive
-                                            : ''
-                                    }`}
-                                    onClick={() => setActiveImageIndex(idx)}
-                                >
-                                    <img
-                                        src={img.imageUrl}
-                                        alt={`${listing.title} ${idx + 1}`}
-                                        className={styles.thumbnail}
-                                    />
-                                </button>
-                            ))}
+                    {listing.images.length > 0 && (
+                        <div className={styles.thumbStrip}>
+                            {listing.images.map((img, idx) =>
+                                renderThumbnail(img, idx)
+                            )}
                         </div>
                     )}
                 </div>
@@ -298,8 +404,21 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                         )}
                     </div>
                     <div className={styles.priceRow}>
-                        <span className={styles.price}>₽{listing.price}</span>
+                        <span className={styles.price}>₽{Math.round(listing.price)}</span>
                     </div>
+                    {isOwner && stats && (
+                        <div className={styles.statsRow}>
+                            <span className={styles.statItem} title="Просмотры">
+                                👁 {stats.viewCount}
+                            </span>
+                            <span className={styles.statItem} title="В избранном">
+                                ❤ {stats.favoriteCount}
+                            </span>
+                            <span className={styles.statItem} title="В корзине">
+                                🛒 {stats.cartCount}
+                            </span>
+                        </div>
+                    )}
                     <div className={styles.cartActions}>
                         {isOwner ? (
                             <>
@@ -324,13 +443,15 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                         Изменить
                                     </Button>
                                 )}
-                                <Button
-                                    variant="outline-danger"
-                                    onClick={handleDeleteListing}
-                                    disabled={ownerActionPending}
-                                >
-                                    Удалить
-                                </Button>
+                                {!listing.isSold && (
+                                    <Button
+                                        variant="outline-danger"
+                                        onClick={handleDeleteListing}
+                                        disabled={ownerActionPending}
+                                    >
+                                        Удалить
+                                    </Button>
+                                )}
                             </>
                         ) : (
                             <>
@@ -338,6 +459,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                     variant={inCart ? 'secondary' : 'primary'}
                                     onClick={handleCartToggle}
                                     className={styles.cartButton}
+                                    disabled={!inCart && isInactive}
                                 >
                                     {inCart
                                         ? 'Убрать из корзины'
@@ -354,6 +476,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                             ? 'Убрать из избранного'
                                             : 'Добавить в избранное'
                                     }
+                                    disabled={!inFavorites && isInactive}
                                 >
                                     ❤
                                 </button>
@@ -396,10 +519,21 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                         </div>
                     </div>
 
-                    <div className={styles.ctaBox}>
-                        <div className={styles.ctaTitle}>
-                            Свяжитесь с продавцом
-                        </div>
+                    {!isOwner && (
+                        <div className={styles.ctaBox}>
+                            <div className={styles.ctaHeader}>
+                                <div className={styles.ctaTitle}>
+                                    Отправить продавцу
+                                </div>
+                                <Button
+                                    onClick={handleSendMessage}
+                                    disabled={!messageText.trim()}
+                                    className={styles.sendButton}
+                                    aria-label="Отправить сообщение"
+                                >
+                                    <span className={styles.sendIcon}>→</span>
+                                </Button>
+                            </div>
                             <div className={styles.messageForm}>
                                 <textarea
                                     rows={3}
@@ -407,7 +541,10 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                         messageError ? 'is-invalid' : ''
                                     }`}
                                     value={messageText}
-                                    onChange={(e) => setMessageText(e.target.value)}
+                                    onChange={(e) => {
+                                        setMessageText(e.target.value);
+                                        setMessageError('');
+                                    }}
                                     onBlur={() => {
                                         const normalized =
                                             normalizeMultiline(messageText);
@@ -420,22 +557,12 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                     maxLength={VALIDATION_LIMITS.messageMaxLength}
                                     aria-invalid={Boolean(messageError)}
                                 />
-                                {messageError && (
-                                    <div className="invalid-feedback d-block">
-                                        {messageError}
-                                    </div>
-                                )}
-                                <div className={styles.messageActions}>
-                                    <Button
-                                        onClick={handleSendMessage}
-                                        disabled={!messageText.trim()}
-                                        className="me-2"
-                                    >
-                                        Отправить
-                                    </Button>
+                                <div className="invalid-feedback d-block field-error-slot">
+                                    {messageError || '\u00A0'}
                                 </div>
                             </div>
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -456,7 +583,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                 alt="Full size"
                                 className="img-fluid"
                             />
-                            <div className="mt-3 d-flex justify-content-between w-100">
+                            <div className="mt-3 d-flex justify-content-center gap-2 w-100 flex-wrap">
                                 <Button onClick={handlePreviousImage}>
                                     Предыдущее
                                 </Button>
@@ -467,7 +594,8 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                 </Modal.Body>
             </Modal>
 
-            {listing.selectedListingPropertyValues.length > 0 && (
+            <div className={styles.detailsSection}>
+                {listing.selectedListingPropertyValues.length > 0 && (
                     <div className={styles.detailsBlock}>
                         <h3 className={styles.sectionTitle}>
                             Характеристики
@@ -492,13 +620,16 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                     </div>
                 )}
 
-            <div className={styles.detailsSection}>
                 <div className={styles.detailsBlock}>
                     <h3 className={styles.sectionTitle}>Описание</h3>
-                    <p className={styles.sectionText}>{listing.description}</p>
+                    <p
+                        className={`${styles.sectionText} ${
+                            hasDescription ? '' : styles.emptyDescriptionText
+                        }`}
+                    >
+                        {descriptionText}
+                    </p>
                 </div>
-
-                
             </div>
         </div>
     );

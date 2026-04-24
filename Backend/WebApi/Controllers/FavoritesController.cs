@@ -2,7 +2,6 @@ using Application.Interfaces.Repositories;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using WebApi.ApiDtos.Favorites;
 
 namespace WebApi.Controllers
@@ -10,7 +9,7 @@ namespace WebApi.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class FavoritesController : ControllerBase
+    public class FavoritesController : AuthorizedControllerBase
     {
         private readonly IFavoriteRepository favoriteRepository;
         private readonly IMapper mapper;
@@ -24,7 +23,7 @@ namespace WebApi.Controllers
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var items = await favoriteRepository.GetByUserIdAsync(userId);
@@ -38,7 +37,7 @@ namespace WebApi.Controllers
             if (request == null || request.ListingId == Guid.Empty)
                 return BadRequest("Invalid favorite request.");
 
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var item = await favoriteRepository.AddAsync(userId, request.ListingId);
@@ -54,7 +53,7 @@ namespace WebApi.Controllers
             if (listingId == Guid.Empty)
                 return BadRequest("Invalid listing id.");
 
-            if (!TryGetUserId(out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var removed = await favoriteRepository.RemoveAsync(userId, listingId);
@@ -64,11 +63,5 @@ namespace WebApi.Controllers
             return NoContent();
         }
 
-        private bool TryGetUserId(out Guid userId)
-        {
-            userId = Guid.Empty;
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return !string.IsNullOrEmpty(userIdString) && Guid.TryParse(userIdString, out userId);
-        }
     }
 }

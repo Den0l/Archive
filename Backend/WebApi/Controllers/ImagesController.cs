@@ -1,40 +1,43 @@
-﻿using AutoMapper;
-using Domain.Entities;
+using AutoMapper;
 using Infrastructure.FileStorage.Interfaces;
+using Infrastructure.ImageProcessing.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using NuGet.Protocol.Core.Types;
-using WebApi.ApiDtos.ListingProperties;
-using WebApi.ApiDtos.Categories;
 using WebApi.ApiDtos.Images;
-using WebApi.ApiDtos.ListingPropertyValues;
+using WebApi.Validation;
 
 namespace WebApi.Controllers
 {
     /// <summary>
-    /// Controller for managing image operations such as retrieving, uploading, and deleting images.
+    /// Controller for managing image operations such as retrieving, uploading, deleting,
+    /// and processing images.
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class ImagesController : ControllerBase
     {
         private readonly IImageRepository repository;
+        private readonly IBackgroundRemovalService backgroundRemovalService;
+        private readonly ILogger<ImagesController> logger;
         private readonly IMapper mapper;
 
         /// <summary>
         /// Initializes a new instance of ImagesController
         /// </summary>
-        /// <param name="repository">Repository to handle image-related operations.</param>
-        /// <param name="mapper">Mapper to convert between domain models and DTOs.</param>
-        public ImagesController(IImageRepository repository, IMapper mapper)
+        public ImagesController(
+            IImageRepository repository,
+            IBackgroundRemovalService backgroundRemovalService,
+            ILogger<ImagesController> logger,
+            IMapper mapper)
         {
             this.repository = repository;
+            this.backgroundRemovalService = backgroundRemovalService;
+            this.logger = logger;
             this.mapper = mapper;
         }
 
         /// <summary>
         /// Retrieves all images.
         /// </summary>
-        /// <returns>A list of all images.</returns>
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -45,8 +48,6 @@ namespace WebApi.Controllers
         /// <summary>
         /// Retrieves an image by its ID.
         /// </summary>
-        /// <param name="id">The unique identifier of the image.</param>
-        /// <returns>The requested image or NotFound if the image doesn't exist.</returns>
         [HttpGet]
         [Route("{id:Guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -56,14 +57,13 @@ namespace WebApi.Controllers
             {
                 return NotFound();
             }
+
             return Ok(mapper.Map<ImageDto>(domain));
         }
 
         /// <summary>
         /// Deletes an image by its ID.
         /// </summary>
-        /// <param name="id">The unique identifier of the image to delete.</param>
-        /// <returns>The deleted image, or NotFound if the image does not exist.</returns>
         [HttpDelete]
         [Route("{id:Guid}")]
         public async Task<IActionResult> Delete(Guid id)
@@ -73,63 +73,144 @@ namespace WebApi.Controllers
             {
                 return NotFound();
             }
+
             return Ok(mapper.Map<ImageDto>(domain));
         }
 
         /// <summary>
         /// Uploads a new image.
         /// </summary>
-        /// <param name="request">The request containing the listing ID and the file to upload.</param>
-        /// <returns>The uploaded image or an error if the file is invalid.</returns>
-        /// <remarks>
-        /// This method checks file size and extension before uploading. It allows .jpg, .jpeg, .png, .webp, .gif, .bmp and .avif files,
-        /// and the file size must not exceed 10MB.
-        /// </remarks>
         [HttpPost]
         [Route("Upload")]
         public async Task<IActionResult> Upload([FromForm] AddImageRequest request)
         {
-            ValidateFileUpload(request);
+            ValidateFileUpload(request.File);
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var domain = await repository.UploadAsync(request.ListingId, request.File);
-            return Ok(mapper.Map<ImageDto>(domain));
+            try
+            {
+                var domain = await repository.UploadAsync(request.ListingId, request.File);
+                if (domain == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "\u041e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u0435 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e.",
+                    });
+                }
+
+                return Ok(mapper.Map<ImageDto>(domain));
+            }
+            catch (InvalidOperationException exception)
+            {
+                return BadRequest(new
+                {
+                    message = exception.Message,
+                });
+            }
+        }
+
+        /// <summary>
+        /// Removes the background from a new or existing image.
+        /// </summary>
+        [HttpPost]
+        [Route("RemoveBackground")]
+        public async Task<IActionResult> RemoveBackground(
+            [FromForm] RemoveBackgroundRequest request,
+            CancellationToken cancellationToken)
+        {
+            var hasFile = request.File != null;
+            var hasImageId = request.ImageId.HasValue && request.ImageId.Value != Guid.Empty;
+
+            if (hasFile == hasImageId)
+            {
+                return BadRequest(new
+                {
+                    message = "\u041f\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u043b\u0438\u0431\u043e \u0444\u0430\u0439\u043b, \u043b\u0438\u0431\u043e imageId.",
+                });
+            }
+
+            try
+            {
+                byte[] sourceImage;
+
+                if (hasFile)
+                {
+                    var file = request.File!;
+                    var validationError = ImageUploadValidation.ValidateFile(
+                        file.FileName,
+                        file.Length,
+                        file.ContentType);
+                    if (validationError != null)
+                    {
+                        return BadRequest(new { message = validationError });
+                    }
+
+                    await using var inputStream = file.OpenReadStream();
+                    await using var memoryStream = new MemoryStream();
+                    await inputStream.CopyToAsync(memoryStream, cancellationToken);
+                    sourceImage = memoryStream.ToArray();
+                }
+                else
+                {
+                    var storedImage = await repository.GetStoredFileAsync(
+                        request.ImageId!.Value,
+                        cancellationToken);
+                    if (storedImage == null)
+                    {
+                        return NotFound(new
+                        {
+                            message = "\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e.",
+                        });
+                    }
+
+                    var validationError = ImageUploadValidation.ValidateFile(
+                        $"{storedImage.Image.FileName}{storedImage.Image.FileExtension}",
+                        storedImage.Image.FileSizeInBytes);
+                    if (validationError != null)
+                    {
+                        return BadRequest(new { message = validationError });
+                    }
+
+                    sourceImage = storedImage.Content;
+                }
+
+                var result = await backgroundRemovalService.RemoveBackgroundAsync(
+                    sourceImage,
+                    cancellationToken);
+                return File(result, "image/png");
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(
+                    exception,
+                    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0443\u0434\u0430\u043b\u0438\u0442\u044c \u0444\u043e\u043d \u0441 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u044f. SourceType={SourceType}",
+                    hasFile ? "file" : "imageId");
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0443\u0431\u0440\u0430\u0442\u044c \u0444\u043e\u043d \u0441 \u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0438.",
+                });
+            }
         }
 
         /// <summary>
         /// Validates the uploaded file.
         /// </summary>
-        /// <param name="imageUploadRequestDto">The request object containing the file to validate.</param>
-        /// <remarks>
-        /// This method ensures that only allowed file extensions (.jpg, .jpeg, .png, .webp, .gif, .bmp, .avif) are accepted,
-        /// and the file size is limited to 10MB.
-        /// </remarks>
-        private void ValidateFileUpload(AddImageRequest imageUploadRequestDto)
+        private void ValidateFileUpload(IFormFile file)
         {
-            var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            var validationError = ImageUploadValidation.ValidateFile(
+                file.FileName,
+                file.Length,
+                file.ContentType);
+            if (validationError == null)
             {
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".webp",
-                ".gif",
-                ".bmp",
-                ".avif",
-            };
+                return;
+            }
 
-            var extension = Path.GetExtension(imageUploadRequestDto.File.FileName);
-            if (!allowedExtensions.Contains(extension))
-            {
-                ModelState.AddModelError("file", "Invalid file extension. Allowed: .jpg, .jpeg, .png, .webp, .gif, .bmp, .avif");
-            }
-            long TEN_MB = 10 * 1024 * 1024;
-            if (imageUploadRequestDto.File.Length > TEN_MB)
-            {
-                ModelState.AddModelError("file", "File size more than 10MB, upload smaller file");
-            }
+            ModelState.AddModelError("file", validationError);
         }
     }
 }

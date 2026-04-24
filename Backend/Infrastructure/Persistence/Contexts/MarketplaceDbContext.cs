@@ -26,9 +26,12 @@ namespace Infrastructure.Persistence.Contexts
         public DbSet<Conversation> Conversations { get; set; }
 		public DbSet<Message> Messages { get; set; }
 		public DbSet<ConversationParticipant> ConversationParticipant { get; set; }
-		public DbSet<Order> Orders { get; set; }
+        public DbSet<Order> Orders { get; set; }
 		public DbSet<City> Cities { get; set; }
-		public DbSet<Review> Reviews { get; set; }
+        public DbSet<Review> Reviews { get; set; }
+        public DbSet<SellerSubscription> SellerSubscriptions { get; set; }
+        public DbSet<ListingView> ListingViews { get; set; }
+        public DbSet<ListingGuestView> ListingGuestViews { get; set; }
 		protected override void OnModelCreating(ModelBuilder modelBuilder) {
             base.OnModelCreating(modelBuilder);
 
@@ -37,8 +40,35 @@ namespace Infrastructure.Persistence.Contexts
                 builder.Property(u => u.NormalizedNickname)
                     .HasMaxLength(50)
                     .IsRequired(false);
+                builder.Property(u => u.PendingEmail)
+                    .HasMaxLength(254)
+                    .IsRequired(false);
+                builder.Property(u => u.NotifyEmailOnNewMessage)
+                    .HasDefaultValue(true);
+                builder.Property(u => u.NotifyEmailOnSellerOrder)
+                    .HasDefaultValue(true);
+                builder.Property(u => u.NotifyEmailOnFollowedSellerListing)
+                    .HasDefaultValue(true);
+                builder.Property(u => u.NotifyEmailOnLogin)
+                    .HasDefaultValue(true);
+                builder.Property(u => u.MustChangePassword)
+                    .HasDefaultValue(false);
                 builder.HasIndex(u => u.NormalizedNickname)
                     .IsUnique();
+            });
+
+            modelBuilder.Entity<Listing>(builder =>
+            {
+                builder.Property(listing => listing.Title)
+                    .HasMaxLength(120)
+                    .IsRequired();
+                builder.Property(listing => listing.Description)
+                    .HasMaxLength(2000)
+                    .IsRequired(false);
+                builder.ToTable(table =>
+                    table.HasCheckConstraint(
+                        "CK_Listings_Title_MinLength",
+                        "char_length(`Title`) >= 3"));
             });
 
             modelBuilder.Entity<Listing>()
@@ -112,6 +142,57 @@ namespace Infrastructure.Persistence.Contexts
 				 .WithMany(u => u.ReviewsReceived)
 				 .HasForeignKey(r => r.RevieweeId);
 			});
+            modelBuilder.Entity<SellerSubscription>(builder =>
+            {
+                builder.HasKey(subscription => new
+                {
+                    subscription.SubscriberId,
+                    subscription.SellerId
+                });
+                builder.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(subscription => subscription.SubscriberId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                builder.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(subscription => subscription.SellerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+            modelBuilder.Entity<ListingView>(builder =>
+            {
+                builder.HasKey(listingView => new
+                {
+                    listingView.ListingId,
+                    listingView.ViewerId
+                });
+                builder.HasOne(listingView => listingView.Listing)
+                    .WithMany()
+                    .HasForeignKey(listingView => listingView.ListingId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                builder.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(listingView => listingView.ViewerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                builder.Property(listingView => listingView.ViewedAt)
+                    .IsRequired();
+            });
+            modelBuilder.Entity<ListingGuestView>(builder =>
+            {
+                builder.HasKey(listingGuestView => new
+                {
+                    listingGuestView.ListingId,
+                    listingGuestView.ViewerFingerprint
+                });
+                builder.HasOne(listingGuestView => listingGuestView.Listing)
+                    .WithMany()
+                    .HasForeignKey(listingGuestView => listingGuestView.ListingId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                builder.Property(listingGuestView => listingGuestView.ViewerFingerprint)
+                    .HasMaxLength(64)
+                    .IsRequired();
+                builder.Property(listingGuestView => listingGuestView.ViewedAt)
+                    .IsRequired();
+            });
 
             var adminRoleId = "e8c9ac14-c7f6-4991-88aa-ad40bfe8f707";
 			var userRoleId = "2d39b4e7-843e-410b-b6e4-ae30e38039f4";

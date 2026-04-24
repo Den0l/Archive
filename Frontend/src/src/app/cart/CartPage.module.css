@@ -71,6 +71,13 @@
     display: grid;
     gap: 24px;
     align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 901px) {
+    .cartLayoutWithSummary {
+        grid-template-columns: minmax(0, 1fr) 19rem;
+    }
 }
 
 .itemsColumn {
@@ -133,6 +140,9 @@
 .itemActions {
     display: flex;
     align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .summaryColumn {
@@ -177,6 +187,12 @@
     color: #cc0000;
     border-color: #ff6600;
     background: #fff0f0;
+}
+
+.noticeLink {
+    color: inherit;
+    text-decoration: underline;
+    font-weight: 700;
 }
 
 .emptyState {
@@ -246,4 +262,35 @@
         flex-direction: column;
         align-items: flex-start;
     }
+}
+
+:global(html[data-theme='light']) .cartItem,
+:global(html[data-theme='dark']) .cartItem,
+:global(html[data-theme='light']) .emptyState,
+:global(html[data-theme='dark']) .emptyState,
+:global(html[data-theme='light']) .summaryCard,
+:global(html[data-theme='dark']) .summaryCard {
+    background: var(--theme-surface) !important;
+    border-color: var(--theme-border) !important;
+    box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .itemImage,
+:global(html[data-theme='dark']) .itemImage {
+    background: transparent !important;
+    border-color: var(--theme-border) !important;
+}
+
+:global(html[data-theme='light']) .itemTitle,
+:global(html[data-theme='dark']) .itemTitle,
+:global(html[data-theme='light']) .emptyText,
+:global(html[data-theme='dark']) .emptyText,
+:global(html[data-theme='light']) .itemMeta,
+:global(html[data-theme='dark']) .itemMeta {
+    color: var(--theme-text) !important;
+}
+
+:global(html[data-theme='light']) .summaryRow,
+:global(html[data-theme='dark']) .summaryRow {
+    color: var(--theme-accent-blue) !important;
 }

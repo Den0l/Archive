@@ -1,7 +1,9 @@
 ﻿using Application.Interfaces.Repositories;
 using AutoMapper;
 using Domain.Entities;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using NuGet.Protocol.Core.Types;
 using WebApi.ApiDtos.ListingProperties;
@@ -11,7 +13,9 @@ using WebApi.ApiDtos.Listings;
 using Application.Filters;
 using WebApi.ApiDtos;
 using System.Net;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using WebApi.Services;
 
 namespace WebApi.Controllers
 {
@@ -25,16 +29,26 @@ namespace WebApi.Controllers
     {
         private readonly ICategoryRepository repository;
         private readonly IMapper mapper;
+        private readonly UserManager<ApplicationUser> userManager;
+        private readonly IBackgroundNotificationQueue backgroundNotificationQueue;
 
         /// <summary>
         /// Constructor for CategoriesController.
         /// </summary>
         /// <param name="repository">Repository for interacting with category data.</param>
         /// <param name="mapper">AutoMapper for mapping between domain models and DTOs.</param>
-        public CategoriesController(ICategoryRepository repository, IMapper mapper)
+        /// <param name="userManager">Identity user manager used to resolve seller emails.</param>
+        /// <param name="backgroundNotificationQueue">Queue for dispatching email notifications asynchronously.</param>
+        public CategoriesController(
+            ICategoryRepository repository,
+            IMapper mapper,
+            UserManager<ApplicationUser> userManager,
+            IBackgroundNotificationQueue backgroundNotificationQueue)
         {
             this.repository = repository;
             this.mapper = mapper;
+            this.userManager = userManager;
+            this.backgroundNotificationQueue = backgroundNotificationQueue;
         }
 
         /// <summary>
@@ -190,11 +204,57 @@ namespace WebApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id)
         {
+            var affectedListings = await repository.GetDescendantListingsAsync(id);
+
             var domain = await repository.DeleteAsync(id);
             if (domain == null)
             {
                 return NotFound();
             }
+
+            if (affectedListings.Count > 0)
+            {
+                var actorIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                string? adminName = null;
+                if (Guid.TryParse(actorIdString, out var actorId))
+                {
+                    var admin = await userManager.FindByIdAsync(actorId.ToString());
+                    adminName = admin?.Nickname;
+                }
+
+                var categoryName = domain.Name;
+                var sellerCache = new Dictionary<Guid, ApplicationUser?>();
+                foreach (var listing in affectedListings)
+                {
+                    if (!sellerCache.TryGetValue(listing.SellerId, out var seller))
+                    {
+                        seller = await userManager.FindByIdAsync(listing.SellerId.ToString());
+                        sellerCache[listing.SellerId] = seller;
+                    }
+
+                    if (seller == null || string.IsNullOrWhiteSpace(seller.Email))
+                    {
+                        continue;
+                    }
+
+                    var sellerEmail = seller.Email!;
+                    var sellerName = seller.Nickname;
+                    var listingTitle = listing.Title;
+                    var listingId = listing.Id;
+
+                    await backgroundNotificationQueue.QueueAsync(
+                        (notificationEmailService, cancellationToken) =>
+                            notificationEmailService
+                                .SendListingRemovedDueToCategoryDeletionAsync(
+                                    sellerEmail,
+                                    sellerName,
+                                    listingTitle,
+                                    listingId,
+                                    categoryName,
+                                    adminName));
+                }
+            }
+
             return Ok(mapper.Map<CategoryDto>(domain));
         }
     }

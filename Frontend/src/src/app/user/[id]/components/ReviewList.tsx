@@ -1,8 +1,11 @@
-import React from 'react';
+﻿import React from 'react';
 import { Page } from '@/types/api/page';
 import { Review } from '@/types/api/reviews';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
+import { useConfirmDialog } from '@/context/ConfirmDialogContext';
 import { deleteReview } from '@/services/reviewService';
+import { getApiErrorMessage } from '@/utils/validation';
 
 export interface ReviewListProps {
     page: Page<Review>;
@@ -11,6 +14,8 @@ export interface ReviewListProps {
 
 export function ReviewList({ page, onPageChange }: ReviewListProps) {
     const { user } = useAuth();
+    const { addNotification } = useNotification();
+    const { confirm } = useConfirmDialog();
     const isAdmin = !!user?.roles?.includes('Admin');
     const hasPagination = page.totalPages > 1;
     const isPrevDisabled = page.pageNumber <= 1 || !hasPagination;
@@ -18,27 +23,39 @@ export function ReviewList({ page, onPageChange }: ReviewListProps) {
         page.pageNumber >= page.totalPages || !hasPagination;
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Вы уверены, что хотите удалить этот отзыв?'))
+        const shouldDelete = await confirm({
+            title: 'Удаление отзыва',
+            message: 'Вы уверены, что хотите удалить этот отзыв?',
+            confirmText: 'Удалить',
+            cancelText: 'Отмена',
+            variant: 'danger',
+        });
+        if (!shouldDelete)
             return;
         try {
             await deleteReview(id);
             onPageChange(page.pageNumber);
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Не удалось удалить отзыв');
+            addNotification(
+                getApiErrorMessage(err, 'Не удалось удалить отзыв.'),
+                { level: 'error', importance: 'high' }
+            );
         }
     };
 
     return (
         <>
-            <ul className="list-group">
+            <ul className="review-list">
                 {page.items.map((review) => (
                     <li
                         key={review.id}
-                        className="list-group-item"
+                        className="review-list__item"
                     >
-                        <div className="d-flex w-100 justify-content-between align-items-start">
-                            <h5 className="mb-1">{review.reviewer.nickname}</h5>
-                            <div className="d-flex align-items-center gap-2">
+                        <div className="review-list__header">
+                            <h5 className="review-list__author mb-1">
+                                {review.reviewer.nickname}
+                            </h5>
+                            <div className="review-list__meta d-flex align-items-center gap-2">
                                 <small className="text-muted">
                                     {new Date(
                                         review.createdAt
@@ -56,7 +73,9 @@ export function ReviewList({ page, onPageChange }: ReviewListProps) {
                                 )}
                             </div>
                         </div>
-                        <p className="mb-1">{review.reviewText}</p>
+                        <p className="review-list__text mb-0">
+                            {review.reviewText}
+                        </p>
                     </li>
                 ))}
             </ul>

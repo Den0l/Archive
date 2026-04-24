@@ -1,8 +1,9 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { City } from '@/types/api/cities';
 import { fetchCities } from '@/services/cityService';
+import { useClickOutside } from '@/sharedComponents/hooks/useClickOutside';
 import {
     normalizeSingleLine,
     validateCityQuery,
@@ -30,19 +31,11 @@ export default function CitySelector({
     const [error, setError] = useState('');
     const wrapperRef = useRef<HTMLDivElement>(null);
     const loadingPromiseRef = useRef<Promise<City[]> | null>(null);
-
-    useEffect(() => {
-        const onClickOutside = (e: MouseEvent) => {
-            if (
-                wrapperRef.current &&
-                !wrapperRef.current.contains(e.target as Node)
-            ) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('click', onClickOutside);
-        return () => document.removeEventListener('click', onClickOutside);
+    const closeSuggestions = useCallback(() => {
+        setIsOpen(false);
     }, []);
+
+    useClickOutside(wrapperRef, closeSuggestions, 'click');
 
     const filterCities = (term: string, cities: City[]) => {
         const normalizedTerm = normalizeSingleLine(term).toLowerCase();
@@ -54,7 +47,7 @@ export default function CitySelector({
         );
     };
 
-    const loadAllCities = async () => {
+    const loadAllCities = useCallback(async () => {
         if (allCities.length > 0) {
             return allCities;
         }
@@ -77,14 +70,19 @@ export default function CitySelector({
             });
         loadingPromiseRef.current = promise;
         return promise;
-    };
+    }, [allCities]);
 
-    const updateSuggestions = async (term: string) => {
+    const updateSuggestions = async (
+        term: string,
+        suppressValidationError = false
+    ) => {
         const normalizedTerm = normalizeSingleLine(term);
-        const validationError = validateCityQuery(normalizedTerm);
-        setError(validationError || '');
+        const validationMessage = validateCityQuery(normalizedTerm);
+        if (!suppressValidationError) {
+            setError(validationMessage || '');
+        }
 
-        if (validationError) {
+        if (validationMessage) {
             setSuggestions([]);
             setIsOpen(false);
             return;
@@ -134,12 +132,13 @@ export default function CitySelector({
                 setInputValue(selectedCity.name);
             }
         });
-    }, [selectedCityId, allCities]);
+    }, [selectedCityId, allCities, loadAllCities]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setInputValue(val);
-        updateSuggestions(val);
+        setError('');
+        updateSuggestions(val, true);
     };
 
     const handleSelect = (city: City) => {
@@ -153,57 +152,64 @@ export default function CitySelector({
 
     return (
         <div
-            className="position-relative"
+            className="city-selector"
             ref={wrapperRef}
         >
-            <input
-                type="text"
-                className={`form-control ${displayError ? 'is-invalid' : ''}`}
-                placeholder={placeholder}
-                value={inputValue}
-                onChange={handleChange}
-                onBlur={() => {
-                    const normalized = normalizeSingleLine(inputValue);
-                    setInputValue(normalized);
-                    setError(validateCityQuery(normalized) || '');
-                }}
-                onFocus={() => {
-                    updateSuggestions(inputValue);
-                }}
-                maxLength={VALIDATION_LIMITS.cityQueryMaxLength}
-                aria-invalid={Boolean(displayError)}
-            />
+            <div className="position-relative">
+                <input
+                    type="text"
+                    className={`form-control ${displayError ? 'is-invalid' : ''}`}
+                    placeholder={placeholder}
+                    value={inputValue}
+                    onChange={handleChange}
+                    onBlur={() => {
+                        const normalized = normalizeSingleLine(inputValue);
+                        setInputValue(normalized);
+                        setError(validateCityQuery(normalized) || '');
+                    }}
+                    onFocus={() => {
+                        updateSuggestions(inputValue);
+                    }}
+                    maxLength={VALIDATION_LIMITS.cityQueryMaxLength}
+                    aria-invalid={Boolean(displayError)}
+                />
 
-            {displayError && (
-                <div className="invalid-feedback d-block text-danger">
-                    <span className="d-block">{displayError}</span>
-                </div>
-            )}
+                {isOpen && suggestions.length > 0 && (
+                    <ul
+                        className="list-group position-absolute w-100"
+                        style={{
+                            zIndex: 1000,
+                            top: 'calc(100% + 0.25rem)',
+                            left: 0,
+                        }}
+                    >
+                        {suggestions.map((city) => (
+                            <li
+                                key={city.id}
+                                className="list-group-city list-group-item-action"
+                                onClick={() => handleSelect(city)}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                {city.name},{' '}
+                                {city.region}
+                            </li>
+                        ))}
+                    </ul>
+                )}
 
-            {isOpen && suggestions.length > 0 && (
-                <ul
-                    className="list-group position-absolute w-100"
-                    style={{ zIndex: 1000 }}
-                >
-                    {suggestions.map((city) => (
-                        <li
-                            key={city.id}
-                            className="list-group-city list-group-item-action"
-                            onClick={() => handleSelect(city)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            {city.name} ({city.zipCode}), {city.district},{' '}
-                            {city.region}
-                        </li>
-                    ))}
-                </ul>
-            )}
+                {loading && (
+                    <div
+                        className="position-absolute text-muted"
+                        style={{ top: 'calc(100% + 0.25rem)', left: 0 }}
+                    >
+                        Загрузка...
+                    </div>
+                )}
+            </div>
 
-            {loading && (
-                <div className="position-absolute mt-1 text-muted">
-                    Загрузка...
-                </div>
-            )}
+            <div className="invalid-feedback d-block text-danger field-error-slot">
+                <span className="d-block">{displayError || '\u00A0'}</span>
+            </div>
         </div>
     );
 }

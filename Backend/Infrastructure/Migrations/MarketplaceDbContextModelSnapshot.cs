@@ -207,8 +207,8 @@ namespace Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<bool>("IsArchived")
                         .HasColumnType("tinyint(1)");
@@ -227,7 +227,11 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -239,7 +243,27 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("StateOfItemId");
 
-                    b.ToTable("Listings");
+                    b.ToTable("Listings", t =>
+                        {
+                            t.HasCheckConstraint("CK_Listings_Title_MinLength", "char_length(`Title`) >= 3");
+                        });
+                });
+
+            modelBuilder.Entity("Domain.Entities.ListingGuestView", b =>
+                {
+                    b.Property<Guid>("ListingId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ViewerFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("ViewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ListingId", "ViewerFingerprint");
+
+                    b.ToTable("ListingGuestViews");
                 });
 
             modelBuilder.Entity("Domain.Entities.ListingProperty", b =>
@@ -275,6 +299,24 @@ namespace Infrastructure.Migrations
                     b.HasIndex("ListingPropertyId");
 
                     b.ToTable("ListingPropertyValues");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ListingView", b =>
+                {
+                    b.Property<Guid>("ListingId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ViewerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ViewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ListingId", "ViewerId");
+
+                    b.HasIndex("ViewerId");
+
+                    b.ToTable("ListingViews");
                 });
 
             modelBuilder.Entity("Domain.Entities.Message", b =>
@@ -371,6 +413,24 @@ namespace Infrastructure.Migrations
                     b.ToTable("Reviews");
                 });
 
+            modelBuilder.Entity("Domain.Entities.SellerSubscription", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("SubscriberId", "SellerId");
+
+                    b.HasIndex("SellerId");
+
+                    b.ToTable("SellerSubscriptions");
+                });
+
             modelBuilder.Entity("Domain.Entities.StateOfItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -465,24 +525,56 @@ namespace Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Nickname")
                         .IsRequired()
                         .HasColumnType("longtext");
-
-                    b.Property<string>("NormalizedNickname")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("NormalizedNickname")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<bool>("NotifyEmailOnFollowedSellerListing")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("NotifyEmailOnLogin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("NotifyEmailOnNewMessage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("NotifyEmailOnSellerOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("PendingEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("varchar(254)");
+
+                    b.Property<DateTime?>("PendingEmailRequestedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("longtext");
@@ -752,6 +844,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("StateOfItem");
                 });
 
+            modelBuilder.Entity("Domain.Entities.ListingGuestView", b =>
+                {
+                    b.HasOne("Domain.Entities.Listing", "Listing")
+                        .WithMany()
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Listing");
+                });
+
             modelBuilder.Entity("Domain.Entities.ListingPropertyValue", b =>
                 {
                     b.HasOne("Domain.Entities.ListingProperty", "ListingProperty")
@@ -761,6 +864,23 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ListingProperty");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ListingView", b =>
+                {
+                    b.HasOne("Domain.Entities.Listing", "Listing")
+                        .WithMany()
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ViewerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Listing");
                 });
 
             modelBuilder.Entity("Domain.Entities.Message", b =>
@@ -814,6 +934,21 @@ namespace Infrastructure.Migrations
                     b.HasOne("Infrastructure.Identity.ApplicationUser", null)
                         .WithMany("ReviewsGiven")
                         .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Entities.SellerSubscription", b =>
+                {
+                    b.HasOne("Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

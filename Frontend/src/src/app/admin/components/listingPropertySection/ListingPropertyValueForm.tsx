@@ -8,7 +8,7 @@ import {
 } from '@/utils/validation';
 
 interface ListingPropertyValueFormProps {
-    onSubmit: (name: string) => void;
+    onSubmit: (name: string) => boolean | Promise<boolean>;
 }
 
 export default function ListingPropertyValueForm({
@@ -17,7 +17,7 @@ export default function ListingPropertyValueForm({
     const [name, setName] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const normalizedName = normalizeSingleLine(name);
         const validationError = validateEntityName(
             'Название значения',
@@ -30,20 +30,25 @@ export default function ListingPropertyValueForm({
             return;
         }
 
-        onSubmit(normalizedName);
-        setName('');
+        const isSubmitted = await onSubmit(normalizedName);
+        if (isSubmitted) {
+            setName('');
+        }
     };
 
     return (
-        <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 mt-2">
-            <div className="flex-grow-1 w-100">
+        <div className="mt-2 admin-create-row admin-property-value-form">
+            <div className="admin-create-row__field">
                 <input
                     type="text"
-                    className={`form-control flex-grow-1 ${
+                    className={`form-control admin-create-row__control ${
                         error ? 'is-invalid' : ''
                     }`}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                        setName(e.target.value);
+                        setError('');
+                    }}
                     onBlur={() => {
                         const normalized = normalizeSingleLine(name);
                         setName(normalized);
@@ -59,14 +64,14 @@ export default function ListingPropertyValueForm({
                     maxLength={VALIDATION_LIMITS.entityNameMaxLength}
                     aria-invalid={Boolean(error)}
                 />
-                {error && (
-                    <div className="invalid-feedback d-block">{error}</div>
-                )}
+                <div className="invalid-feedback d-block field-error-slot">
+                    {error || '\u00A0'}
+                </div>
             </div>
             <button
                 type="button"
-                className="btn btn-success w-100 w-md-auto"
-                onClick={handleSubmit}
+                className="btn btn-success admin-create-row__submit admin-property-value-form__submit"
+                onClick={() => void handleSubmit()}
             >
                 Добавить значение
             </button>

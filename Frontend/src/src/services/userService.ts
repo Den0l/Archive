@@ -1,33 +1,33 @@
-import api from './apiClient';
+import {
+    deleteData,
+    deleteVoid,
+    getData,
+    postData,
+} from './httpClient';
 import { User, UserDetail } from '@/types/api/users';
 
 export const fetchUserById = async (id: string): Promise<User> => {
-    const { data } = await api.get<User>(`/api/Users/${id}`);
-    return data;
+    return getData<User>(`/api/Users/${id}`);
 };
 
 export const fetchUserDetail = async (id: string): Promise<UserDetail> => {
-    const { data } = await api.get<UserDetail>(`/api/Users/${id}/detail`);
-    return data;
+    return getData<UserDetail>(`/api/Users/${id}/detail`);
 };
 
 export const fetchAllUserDetails = async (): Promise<UserDetail[]> => {
-    const { data } = await api.get<UserDetail[]>(`/api/Users/GetAll`);
-    return data;
+    return getData<UserDetail[]>(`/api/Users/GetAll`);
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
-    await api.delete(`/api/Users/${id}`);
+    await deleteVoid(`/api/Users/${id}`);
 };
 
 export const addAdminRole = async (id: string): Promise<UserDetail> => {
-    const { data } = await api.post<UserDetail>(`/api/Users/${id}/roles/admin`);
-    return data;
+    return postData<UserDetail>(`/api/Users/${id}/roles/admin`);
 };
 
 export const removeAdminRole = async (id: string): Promise<UserDetail> => {
-    const { data } = await api.delete<UserDetail>(
+    return deleteData<UserDetail>(
         `/api/Users/${id}/roles/admin`
     );
-    return data;
 };

@@ -5,6 +5,8 @@
 }
 
 .productHeader {
+    --listing-top-panel-height: 49rem;
+
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
     gap: 24px;
@@ -18,7 +20,9 @@
 }
 
 .mainImageWrapper {
+    position: relative;
     width: 100%;
+    box-sizing: border-box;
     border: 3px solid #ff9900;
     background: linear-gradient(to bottom, #ffffff, #ffffcc);
     box-shadow: 4px 4px 0 #cc6600;
@@ -26,15 +30,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 43rem;
+    height: 44rem;
+    min-height: 44rem;
 }
 
 .mainImage {
     width: 100%;
     height: 100%;
-    max-height: 420px;
     object-fit: contain;
     cursor: zoom-in;
+    display: block;
 }
 
 .noImage {
@@ -43,10 +48,78 @@
     text-align: center;
 }
 
-.thumbRow {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+.carouselNav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) scale(1);
+    width: 2.6rem;
+    height: 2.6rem;
+    border: 0.15rem solid #000099;
+    border-radius: 999px;
+    background: linear-gradient(to bottom, #ffffcc, #ffcc99);
+    color: #000099;
+    box-shadow: 2px 2px 0 #cc6600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: bold;
+    line-height: 1;
+    padding: 0;
+    z-index: 2;
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease,
+        background 0.12s ease,
+        color 0.12s ease;
+}
+
+.carouselNav:hover {
+    background: linear-gradient(to bottom, #ffef99, #ffcc66);
+    color: #0000cc;
+}
+
+.carouselNav:active {
+    transform: translateY(-50%) scale(0.92);
+    box-shadow: 1px 1px 0 #cc6600;
+}
+
+.carouselNavPrev {
+    left: 0.75rem;
+}
+
+.carouselNavNext {
+    right: 0.75rem;
+}
+
+.carouselCounter {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border: 0.15rem solid #000099;
+    border-radius: 999px;
+    background: rgba(255, 255, 204, 0.9);
+    color: #000099;
+    font-size: 0.85rem;
+    font-weight: bold;
+    box-shadow: 2px 2px 0 #cc6600;
+    z-index: 2;
+}
+
+.thumbStrip {
+    display: flex;
     gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 4px;
+}
+
+.thumbStrip > .thumbButton {
+    flex: 0 0 auto;
+    width: 5rem;
+    scroll-snap-align: start;
 }
 
 .thumbButton {
@@ -74,14 +147,14 @@
 }
 
 .infoColumn {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 30px;
     border: 3px solid #ff9900;
     background: linear-gradient(to bottom, #ffffff, #ffef99);
     box-shadow: 4px 4px 0 #cc6600;
     padding: 20px;
-    min-height: 43rem;
 }
 
 .title {
@@ -133,20 +206,38 @@
     box-shadow: inset 2px 2px 0 #ffffff;
 }
 
+.statsRow {
+    display: flex;
+    gap: 16px;
+    padding: 8px 16px;
+    border: 2px solid #ff9900;
+    background: linear-gradient(to bottom, #ffffff, #ffffcc);
+    box-shadow: inset 1px 1px 0 #ffffff;
+}
+
+.statItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #000099;
+}
+
 .cartActions {
     display: flex;
     gap: 12px;
     align-items: center;
+    justify-content: center;
 }
 
 .cartButton {
     flex: 1 1 auto;
     width: auto;
+    margin-left: 1.5rem;
 }
 
 .favoriteButton {
-    width: 44px;
-    height: 44px;
     border-radius: 50%;
     border: 3px solid #b0b0b0;
     background: #ffffff;
@@ -159,6 +250,9 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    padding: 0;
+    min-width: 40px;
+    min-height: 40px;
 }
 
 .favoriteButton:hover {
@@ -189,9 +283,9 @@
 }
 
 .metaGrid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .metaItem {
@@ -246,15 +340,38 @@
     text-transform: uppercase;
 }
 
-.ctaButton {
-    width: 100%;
+.ctaHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.sendButton {
+    min-width: 44px;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 20px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sendIcon {
+    display: block;
+    line-height: 1;
+    transform: translateY(-1px);
 }
 
 .messageForm {
     display: flex;
     flex-direction: column;
-    gap: 10px;
     max-height: 80px;
+}
+
+.messageForm textarea {
+    resize: none;
 }
 
 .messageActions {
@@ -265,8 +382,9 @@
 
 .detailsSection {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr);
     gap: 20px;
+    align-items: start;
 }
 
 .detailsBlock {
@@ -290,6 +408,14 @@
     font-weight: bold;
     color: #000000;
     line-height: 1.5;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.emptyDescriptionText {
+    margin-top: 24px;
+    color: #777777;
+    text-align: center;
 }
 
 .propertiesList {
@@ -326,29 +452,172 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .metaGrid {
-        grid-template-columns: minmax(0, 1fr);
+    .mainImageWrapper {
+        height: 280px;
+        min-height: 280px;
     }
 
-    .mainImageWrapper {
-        min-height: 280px;
+    .detailsSection {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
 @media (max-width: 600px) {
-    .mainImage {
-        max-height: 320px;
+    .mainImageWrapper {
+        height: 320px;
+        min-height: 320px;
     }
 
-    .thumbRow {
-        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    .thumbStrip > .thumbButton {
+        width: 4rem;
     }
 
     .thumbnail {
         height: 56px;
     }
 
+    .carouselNav {
+        width: 2.2rem;
+        height: 2.2rem;
+        font-size: 1.5rem;
+    }
+
     .price {
         font-size: 24px;
     }
+}
+
+:global(html[data-theme='light']) .mainImageWrapper,
+:global(html[data-theme='dark']) .mainImageWrapper,
+:global(html[data-theme='light']) .infoColumn,
+:global(html[data-theme='dark']) .infoColumn,
+:global(html[data-theme='light']) .detailsBlock,
+:global(html[data-theme='dark']) .detailsBlock,
+:global(html[data-theme='light']) .ctaBox,
+:global(html[data-theme='dark']) .ctaBox,
+:global(html[data-theme='light']) .priceRow,
+:global(html[data-theme='dark']) .priceRow,
+:global(html[data-theme='light']) .statsRow,
+:global(html[data-theme='dark']) .statsRow,
+:global(html[data-theme='light']) .metaItem,
+:global(html[data-theme='dark']) .metaItem,
+:global(html[data-theme='light']) .propertyItem,
+:global(html[data-theme='dark']) .propertyItem {
+    background: var(--theme-surface) !important;
+    border-color: var(--theme-border) !important;
+    box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .carouselNav,
+:global(html[data-theme='dark']) .carouselNav,
+:global(html[data-theme='light']) .thumbButton,
+:global(html[data-theme='dark']) .thumbButton {
+    background: transparent !important;
+    border-color: var(--theme-border-strong) !important;
+    box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .carouselNav,
+:global(html[data-theme='dark']) .carouselNav {
+    color: var(--theme-accent-blue) !important;
+}
+
+:global(html[data-theme='light']) .carouselNav:hover,
+:global(html[data-theme='dark']) .carouselNav:hover,
+:global(html[data-theme='light']) .thumbButton:hover,
+:global(html[data-theme='dark']) .thumbButton:hover {
+    background: transparent !important;
+    border-color: var(--theme-accent-orange) !important;
+    color: var(--theme-accent-orange) !important;
+}
+
+:global(html[data-theme='light']) .thumbActive,
+:global(html[data-theme='dark']) .thumbActive {
+    border-color: var(--theme-accent-blue) !important;
+    box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .thumbnail,
+:global(html[data-theme='dark']) .thumbnail,
+:global(html[data-theme='light']) .carouselCounter,
+:global(html[data-theme='dark']) .carouselCounter {
+    background: var(--theme-surface) !important;
+    border-color: var(--theme-border-strong) !important;
+    color: var(--theme-text) !important;
+    box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .favoriteButton,
+:global(html[data-theme='dark']) .favoriteButton {
+    background: transparent !important;
+    border-color: var(--theme-border-strong) !important;
+    color: var(--theme-muted) !important;
+    box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .favoriteButton:hover,
+:global(html[data-theme='dark']) .favoriteButton:hover,
+:global(html[data-theme='light']) .favoriteActive,
+:global(html[data-theme='dark']) .favoriteActive {
+    background: transparent !important;
+    border-color: #cc0000 !important;
+    color: #cc0000 !important;
+}
+
+:global(html[data-theme='light']) .statusSold,
+:global(html[data-theme='dark']) .statusSold {
+    background: transparent !important;
+    border-color: #cc0000 !important;
+    color: #cc0000 !important;
+}
+
+:global(html[data-theme='light']) .statusArchived,
+:global(html[data-theme='dark']) .statusArchived {
+    background: transparent !important;
+    border-color: var(--theme-border-strong) !important;
+    color: var(--theme-muted) !important;
+}
+
+:global(html[data-theme='light']) .title,
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='light']) .sectionTitle,
+:global(html[data-theme='dark']) .sectionTitle,
+:global(html[data-theme='light']) .sectionText,
+:global(html[data-theme='dark']) .sectionText,
+:global(html[data-theme='light']) .metaValue,
+:global(html[data-theme='dark']) .metaValue,
+:global(html[data-theme='light']) .propertyValue,
+:global(html[data-theme='dark']) .propertyValue,
+:global(html[data-theme='light']) .noImage,
+:global(html[data-theme='dark']) .noImage {
+    color: var(--theme-text) !important;
+    text-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .price,
+:global(html[data-theme='dark']) .price {
+    color: #cc0000 !important;
+}
+
+:global(html[data-theme='light']) .priceNote,
+:global(html[data-theme='dark']) .priceNote,
+:global(html[data-theme='light']) .metaLabel,
+:global(html[data-theme='dark']) .metaLabel,
+:global(html[data-theme='light']) .propertyLabel,
+:global(html[data-theme='dark']) .propertyLabel,
+:global(html[data-theme='light']) .ctaTitle,
+:global(html[data-theme='dark']) .ctaTitle,
+:global(html[data-theme='light']) .statItem,
+:global(html[data-theme='dark']) .statItem {
+    color: var(--theme-accent-blue) !important;
+}
+
+:global(html[data-theme='light']) .metaLink,
+:global(html[data-theme='dark']) .metaLink {
+    color: var(--theme-link) !important;
+}
+
+:global(html[data-theme='light']) .metaLink:hover,
+:global(html[data-theme='dark']) .metaLink:hover {
+    color: var(--theme-link-hover) !important;
 }

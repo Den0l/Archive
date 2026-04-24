@@ -1,119 +1,244 @@
-﻿using Application.Interfaces.Repositories;
+using Application.Interfaces.Repositories;
 using AutoMapper;
 using Domain.Entities;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using NuGet.Protocol.Core.Types;
-using System.Security.Claims;
-using WebApi.ApiDtos.Categories;
 using WebApi.ApiDtos.Conversations;
 using WebApi.ApiDtos.Messages;
+using WebApi.Services;
 
 namespace WebApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ConversationsController : ControllerBase
+    public class ConversationsController : AuthorizedControllerBase
     {
-
         private readonly IConversationRepository conversationRepository;
         private readonly IMessageRepository messageRepository;
-        private readonly UserManager<ApplicationUser> userManager;
+        private readonly ISystemUserProvider systemUserProvider;
         private readonly IMapper mapper;
 
-        /// <summary>
-        /// Constructor for CategoriesController.
-        /// </summary>
-        /// <param name="repository">Repository for interacting with category data.</param>
-        /// <param name="mapper">AutoMapper for mapping between domain models and DTOs.</param>
-        public ConversationsController(IConversationRepository conversationRepository, IMessageRepository messageRepository, UserManager<ApplicationUser> userManager, IMapper mapper)
+        public ConversationsController(
+            IConversationRepository conversationRepository,
+            IMessageRepository messageRepository,
+            ISystemUserProvider systemUserProvider,
+            IMapper mapper
+        )
         {
             this.conversationRepository = conversationRepository;
             this.messageRepository = messageRepository;
-            this.userManager = userManager;
+            this.systemUserProvider = systemUserProvider;
             this.mapper = mapper;
         }
+
         /// <summary>
-        /// Creates a new Conversation. If the conversation already exists, it returns the existing conversation, so that the 
+        /// Creates a new conversation, or returns an existing one if it already exists.
         /// </summary>
-        /// <param name="request">Request object containing category details.</param>
-        /// <returns>The created category.</returns>
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> Post(CreateConversationRequest request)
         {
-            string senderIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            Guid senderId = Guid.Parse(senderIdString);
-            var existingConversation = await conversationRepository.ConversationExists(senderId, request.RecipientId);
+            var unauthorizedResult = UnauthorizedIfNoAuthenticatedUserId(
+                out var senderId
+            );
+            if (unauthorizedResult != null)
+            {
+                return unauthorizedResult;
+            }
+
+            var existingConversation = await conversationRepository
+                .ConversationExists(senderId, request.RecipientId);
             if (existingConversation != null)
             {
-                var mappedExisting = mapper.Map<ConversationDto>(existingConversation);
-                return Ok(mappedExisting);
+                return this.OkMapped<ConversationDto>(mapper, existingConversation);
             }
+
             var conversationId = Guid.NewGuid();
-            var participant1 = new ConversationParticipant { ConversationId = conversationId, UserId = senderId };
-            var participant2 = new ConversationParticipant { ConversationId = conversationId, UserId = request.RecipientId };
-            var conversation = new Conversation { Id = conversationId, ConversationParticipants = new() { participant1, participant2 }, CreatedAt = DateTime.Now};
-           
+            var participant1 = new ConversationParticipant
+            {
+                ConversationId = conversationId,
+                UserId = senderId,
+            };
+            var participant2 = new ConversationParticipant
+            {
+                ConversationId = conversationId,
+                UserId = request.RecipientId,
+            };
+            var conversation = new Conversation
+            {
+                Id = conversationId,
+                ConversationParticipants = new() { participant1, participant2 },
+                CreatedAt = DateTime.Now,
+            };
+
             var domain = await conversationRepository.CreateAsync(conversation);
-            var mapped = mapper.Map<ConversationDto>(domain);
-            return Ok(mapped);
+            return this.OkMapped<ConversationDto>(mapper, domain);
         }
+
         /// <summary>
         /// Retrieves messages of conversation by its ID.
         /// </summary>
-        /// <param name="conversationId">The unique identifier of the conversation.</param>
-        /// <returns>The requested messages, or a Forbidden response if user is not part of the conversation.</returns>
         [HttpGet]
         [Route("{conversationId:Guid}/messages")]
         [Authorize]
         public async Task<IActionResult> GetMessagesById(Guid conversationId)
         {
-            string userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            Guid userId = Guid.Parse(userIdString);
-            var isParticipant = await conversationRepository.IsUserInConversationAsync(userId, conversationId);
-            if (!isParticipant)
+            var unauthorizedResult = UnauthorizedIfNoAuthenticatedUserId(
+                out var userId
+            );
+            if (unauthorizedResult != null)
             {
-                return Forbid();
+                return unauthorizedResult;
             }
-            var domain = await messageRepository.GetByConversationIdAsync(conversationId);
-            return Ok(mapper.Map<List<MessageDto>>(domain));
+
+            var isParticipant = await conversationRepository
+                .IsUserInConversationAsync(userId, conversationId);
+            var forbidResult = ForbidIf(!isParticipant);
+            if (forbidResult != null)
+            {
+                return forbidResult;
+            }
+
+            var domain = await messageRepository.GetByConversationIdAsync(
+                conversationId
+            );
+            return this.OkMapped<List<MessageDto>>(mapper, domain);
         }
+
         /// <summary>
         /// Retrieves conversation info by its ID.
         /// </summary>
-        /// <param name="conversationId">The unique identifier of the conversation.</param>
-        /// <returns>The requested conversation, or a Forbidden response if user is not part of the conversation.</returns>
         [HttpGet]
         [Route("{conversationId:Guid}")]
         [Authorize]
         public async Task<IActionResult> GetById(Guid conversationId)
         {
-            string userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            Guid userId = Guid.Parse(userIdString);
-            var isParticipant = await conversationRepository.IsUserInConversationAsync(userId, conversationId);
-            if (!isParticipant)
+            var unauthorizedResult = UnauthorizedIfNoAuthenticatedUserId(
+                out var userId
+            );
+            if (unauthorizedResult != null)
             {
-                return Forbid();
+                return unauthorizedResult;
             }
+
+            var isParticipant = await conversationRepository
+                .IsUserInConversationAsync(userId, conversationId);
+            var forbidResult = ForbidIf(!isParticipant);
+            if (forbidResult != null)
+            {
+                return forbidResult;
+            }
+
             var domain = await conversationRepository.GetByIdAsync(conversationId);
-            return Ok(mapper.Map<ConversationDto>(domain));
+            var notFoundResult = NotFoundIfNull(domain);
+            if (notFoundResult != null)
+            {
+                return notFoundResult;
+            }
+
+            return this.OkMapped<ConversationDto>(mapper, domain);
         }
+
         /// <summary>
-        /// Gets all conversations for user, that is signed in. 
+        /// Gets all conversations for currently authorized user.
         /// </summary>
-        /// <returns>List of all conversations for the user. </returns>
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetAllByUser()
         {
-            string userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            Guid userId = Guid.Parse(userIdString);
+            var unauthorizedResult = UnauthorizedIfNoAuthenticatedUserId(
+                out var userId
+            );
+            if (unauthorizedResult != null)
+            {
+                return unauthorizedResult;
+            }
+
             var domain = await conversationRepository.GetByUserIdAsync(userId);
-            return Ok(mapper.Map<List<ConversationDto>>(domain));
+            return this.OkMapped<List<ConversationDto>>(mapper, domain);
+        }
+
+        /// <summary>
+        /// Ensures a conversation between the current user and the system user exists.
+        /// Creates one if it doesn't exist. Returns the conversation.
+        /// </summary>
+        [HttpPost("ensure-system")]
+        [Authorize]
+        public async Task<IActionResult> EnsureSystemConversation()
+        {
+            var unauthorizedResult = UnauthorizedIfNoAuthenticatedUserId(
+                out var userId
+            );
+            if (unauthorizedResult != null)
+            {
+                return unauthorizedResult;
+            }
+
+            var systemUser = await systemUserProvider.GetSystemUserAsync();
+
+            if (systemUser.Id == userId)
+            {
+                return Ok(
+                    new { conversationId = (Guid?)null, systemUserId = systemUser.Id }
+                );
+            }
+
+            var existing = await conversationRepository.ConversationExists(
+                systemUser.Id,
+                userId
+            );
+            if (existing != null)
+            {
+                return Ok(
+                    new
+                    {
+                        conversationId = existing.Id,
+                        systemUserId = systemUser.Id,
+                    }
+                );
+            }
+
+            var conversationId = Guid.NewGuid();
+            var now = DateTime.Now;
+            var conversation = new Conversation
+            {
+                Id = conversationId,
+                CreatedAt = now,
+                LastUpdatedAt = now,
+                ConversationParticipants = new()
+                {
+                    new ConversationParticipant
+                    {
+                        ConversationId = conversationId,
+                        UserId = systemUser.Id,
+                    },
+                    new ConversationParticipant
+                    {
+                        ConversationId = conversationId,
+                        UserId = userId,
+                    },
+                },
+            };
+            await conversationRepository.CreateAsync(conversation);
+
+            return Ok(
+                new
+                {
+                    conversationId = conversation.Id,
+                    systemUserId = systemUser.Id,
+                }
+            );
+        }
+
+        /// <summary>
+        /// Returns the system user's ID.
+        /// </summary>
+        [HttpGet("system-user-id")]
+        [Authorize]
+        public async Task<IActionResult> GetSystemUserId()
+        {
+            var systemUser = await systemUserProvider.GetSystemUserAsync();
+            return Ok(new { systemUserId = systemUser.Id });
         }
     }
 }

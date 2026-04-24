@@ -21,7 +21,7 @@ namespace Domain.Entities {
 		public StateOfItem StateOfItem { get; set; }
 		public Guid StateOfItemId { get; set; }
 		public string Title { get; set; }
-		public string Description { get; set; }
+		public string? Description { get; set; }
 		public bool IsSold { get; set; }
 		public bool IsArchived { get; set; }
 		public DateTime CreatedAt { get; set; }
@@ -31,5 +31,6 @@ namespace Domain.Entities {
 		public Category Category { get; set; }
 		public List<ListingPropertyValue> SelectedListingPropertyValues { get; set; }
 		public List<Image> Images { get; set; }
+		public int ViewCount { get; set; }
 	}
 }

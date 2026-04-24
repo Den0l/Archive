@@ -1,22 +1,25 @@
 'use client';
-import React, { ReactNode, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+
+import React, { ReactNode, useCallback } from 'react';
+import {
+    type RouteGuardContext,
+    useRouteGuard,
+} from '@/sharedComponents/hooks/useRouteGuard';
 
 export default function RequireAdmin({ children }: { children: ReactNode }) {
-    const { user, loading } = useAuth();
-    const router = useRouter();
+    const isAllowed = useCallback(({ user }: RouteGuardContext) => {
+        return Boolean(user?.roles.includes('Admin'));
+    }, []);
 
-    useEffect(() => {
-        if (!loading) {
-            if (!user || !user.roles.includes('Admin')) {
-                router.push('/');
-            }
-        }
-    }, [user, loading, router]);
+    const { user, loading } = useRouteGuard({
+        redirectTo: '/',
+        isAllowed,
+    });
 
-    if (loading || !user) {
-        return <div>Загрузка...</div>;
+    const isAdmin = Boolean(user?.roles.includes('Admin'));
+
+    if (loading || !user || !isAdmin) {
+        return <div className="page-loading-state">Загрузка</div>;
     }
 
     return <>{children}</>;

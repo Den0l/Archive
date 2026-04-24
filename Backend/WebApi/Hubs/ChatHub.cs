@@ -1,9 +1,13 @@
 using Application.Interfaces.Repositories;
 using AutoMapper;
 using Domain.Entities;
+using Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using WebApi.ApiDtos.Messages;
+using WebApi.Services;
 
 namespace WebApi.Hubs
 {
@@ -15,6 +19,9 @@ namespace WebApi.Hubs
         private readonly IMessageRepository messageRepository;
         private readonly IConversationRepository conversationRepository;
         private readonly IMapper mapper;
+        private readonly UserManager<ApplicationUser> userManager;
+        private readonly IBackgroundNotificationQueue backgroundNotificationQueue;
+        private readonly ILogger<ChatHub> logger;
 
         /// <summary>
         /// Constructor for ChatHub.
@@ -25,11 +32,17 @@ namespace WebApi.Hubs
         public ChatHub(
             IMessageRepository messageRepository,
             IConversationRepository conversationRepository,
-            IMapper mapper)
+            IMapper mapper,
+            UserManager<ApplicationUser> userManager,
+            IBackgroundNotificationQueue backgroundNotificationQueue,
+            ILogger<ChatHub> logger)
         {
             this.messageRepository = messageRepository;
             this.conversationRepository = conversationRepository;
             this.mapper = mapper;
+            this.userManager = userManager;
+            this.backgroundNotificationQueue = backgroundNotificationQueue;
+            this.logger = logger;
         }
 
         public override async Task OnConnectedAsync()
@@ -88,12 +101,45 @@ namespace WebApi.Hubs
                 .Select(participant => participant.UserId)
                 .Where(userId => userId != senderId)
                 .Distinct()
+                .ToList();
+            var recipientGroups = recipientIds
                 .Select(userId => GetUserGroup(userId.ToString()));
 
-            await Clients.Groups(recipientIds).SendAsync(
+            await Clients.Groups(recipientGroups).SendAsync(
                 "ReceiveMessageNotification",
                 senderId,
                 mappedMessage);
+
+            if (recipientIds.Count == 0)
+            {
+                return;
+            }
+
+            var sender = await userManager.FindByIdAsync(senderId.ToString());
+            var recipientsToNotify = await userManager.Users
+                .Where(user =>
+                    recipientIds.Contains(user.Id) &&
+                    user.NotifyEmailOnNewMessage &&
+                    user.Email != null)
+                .ToListAsync();
+
+            foreach (var recipient in recipientsToNotify)
+            {
+                var recipientEmail = recipient.Email!;
+                var recipientNickname = recipient.Nickname;
+                var senderName = sender?.Nickname ?? "Пользователь";
+                var messagePreview = normalizedMessage;
+                var targetConversationId = conversationId;
+
+                await backgroundNotificationQueue.QueueAsync(
+                    (notificationEmailService, cancellationToken) =>
+                        notificationEmailService.SendNewMessageNotificationAsync(
+                            recipientEmail,
+                            recipientNickname,
+                            senderName,
+                            messagePreview,
+                            targetConversationId));
+            }
         }
 
         public async Task JoinConversation(Guid conversationId)

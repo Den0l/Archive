@@ -46,6 +46,28 @@ export interface ListingPropertyValueSelection {
     selectedListingPropertyValueId: string;
 }
 
+export interface AiAutofillListingRequest {
+    listingId?: string;
+    descriptionHint?: string;
+    existingImageIds?: string[];
+    newImages?: File[];
+}
+
+export interface AiAutofillListingResponse {
+    title: string;
+    description: string;
+    stateOfItemId: string;
+    categoryId: string;
+    propertyValueSelection: ListingPropertyValueSelection[];
+    warnings: string[];
+}
+
+export interface ListingStats {
+    viewCount: number;
+    favoriteCount: number;
+    cartCount: number;
+}
+
 export interface UpdateListingRequest {
     price: number;
     stateOfItemId: string;
@@ -55,5 +77,9 @@ export interface UpdateListingRequest {
     cityId: string;
     propertyValueSelection: ListingPropertyValueSelection[];
     isSold: boolean;
+    isArchived: boolean;
+}
+
+export interface UpdateListingArchiveRequest {
     isArchived: boolean;
 }

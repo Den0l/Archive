@@ -1,7 +1,6 @@
-import api from '@/services/apiClient';
+import { getData } from './httpClient';
 import { StateOfItem } from '@/types/api/stateOfItem';
 
 export const fetchStatesOfItem = async (): Promise<StateOfItem[]> => {
-    const response = await api.get<StateOfItem[]>('/api/StateOfItem');
-    return response.data;
+    return getData<StateOfItem[]>('/api/StateOfItem');
 };

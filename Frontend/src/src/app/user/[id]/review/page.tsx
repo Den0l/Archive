@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createReview } from '@/services/reviewService';
 import {
@@ -9,13 +9,27 @@ import {
     validateReviewText,
     VALIDATION_LIMITS,
 } from '@/utils/validation';
+import { useNotification } from '@/context/NotificationContext';
+import { fetchSystemUserId } from '@/services/conversationService';
+import RequireAuth from '@/sharedComponents/RequireAuth';
 
-export default function ReviewPage({ params }: { params: { id: string } }) {
+function ReviewContent({ params }: { params: { id:string } }) {
     const { id } = params;
     const router = useRouter();
+    const { addNotification } = useNotification();
     const [reviewText, setReviewText] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchSystemUserId()
+            .then((sysId) => {
+                if (sysId === id) {
+                    router.replace('/inbox');
+                }
+            })
+            .catch(() => {});
+    }, [id, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -33,9 +47,9 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
             await createReview({ revieweeId: id, reviewText: normalizedReviewText });
             router.push(`/user/${id}`);
         } catch (err) {
-            setError(
-                getApiErrorMessage(err, 'Не удалось отправить отзыв.')
-            );
+            const message = getApiErrorMessage(err, 'Не удалось отправить отзыв.');
+            setError(null);
+            addNotification(message, { level: 'error', importance: 'high' });
         } finally {
             setIsSubmitting(false);
         }
@@ -45,7 +59,6 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
         <div className="container my-5">
             <div className="row justify-content-center">
                 <div className="col-12 col-md-8">
-                    <h1 className="mb-4">Оставить отзыв</h1>
                     <form onSubmit={handleSubmit}>
                         <div className="mb-3">
                             <textarea
@@ -55,7 +68,10 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
                                 rows={5}
                                 placeholder="Напишите ваш отзыв..."
                                 value={reviewText}
-                                onChange={(e) => setReviewText(e.target.value)}
+                                onChange={(e) => {
+                                    setReviewText(e.target.value);
+                                    setError(null);
+                                }}
                                 onBlur={() => {
                                     const normalized = normalizeMultiline(
                                         reviewText
@@ -68,8 +84,10 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
                                 aria-invalid={Boolean(error)}
                                 required
                             />
+                            <div className="invalid-feedback d-block field-error-slot">
+                                {error || '\u00A0'}
+                            </div>
                         </div>
-                        {error && <div className="text-danger mb-3">{error}</div>}
                         <button
                             type="submit"
                             className="btn btn-primary"
@@ -83,5 +101,13 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ReviewPage({ params }: { params: { id:string } }) {
+    return (
+        <RequireAuth>
+            <ReviewContent params={params} />
+        </RequireAuth>
     );
 }

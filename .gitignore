@@ -1,2 +1,15 @@
 node_modules/
-node_modules/
+.env.local
+Backend/WebApi/.env.local
+
+# .NET build artifacts
+**/bin/
+**/obj/
+
+# IDE / tooling
+.vs/
+.dotnet/
+
+# Local database data (MySQL container volume)
+Database/mysqlData/
+

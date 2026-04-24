@@ -10,6 +10,12 @@ import React, {
     ReactNode,
 } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { requireContext } from '@/context/contextUtils';
+import {
+    readJsonFromStorage,
+    removeFromStorage,
+    writeJsonToStorage,
+} from '@/context/storageUtils';
 import {
     addFavorite as addFavoriteApi,
     fetchFavorites,
@@ -23,6 +29,7 @@ export interface FavoriteItem {
     price: number;
     imageUrl: string;
     isSold: boolean;
+    isArchived: boolean;
 }
 
 interface FavoriteContextType {
@@ -39,33 +46,37 @@ const FavoriteContext = createContext<FavoriteContextType | undefined>(
 
 const STORAGE_KEY = 'marketplace_favorites';
 
+const isFavoriteItemsArray = (value: unknown): value is FavoriteItem[] =>
+    Array.isArray(value);
+
 const mapDtoToFavorite = (dto: FavoriteItemDto): FavoriteItem => ({
     id: dto.listingId,
     title: dto.listing?.title ?? 'Объявление удалено',
     price: dto.listing?.price ?? 0,
-    imageUrl:
-        dto.listing?.images?.[0]?.imageUrl || '/default-image.jpg',
+    imageUrl: dto.listing?.images?.[0]?.imageUrl || '/default-image.jpg',
     isSold: dto.listing?.isSold ?? true,
+    isArchived: dto.listing?.isArchived ?? true,
 });
 
 const readLocal = (): FavoriteItem[] => {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (!stored) return [];
-        const parsed = JSON.parse(stored) as FavoriteItem[];
-        return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-        console.warn('Failed to read favorites from storage', error);
-        return [];
-    }
+    return readJsonFromStorage<FavoriteItem[]>(
+        STORAGE_KEY,
+        [],
+        isFavoriteItemsArray,
+        {
+            onError: (error) => {
+                console.warn('Failed to read favorites from storage', error);
+            },
+        }
+    );
 };
 
 const writeLocal = (items: FavoriteItem[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    writeJsonToStorage(STORAGE_KEY, items);
 };
 
 const clearLocal = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    removeFromStorage(STORAGE_KEY);
 };
 
 export const FavoriteProvider = ({ children }: { children: ReactNode }) => {
@@ -178,9 +189,9 @@ export const FavoriteProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useFavorites = (): FavoriteContextType => {
-    const context = useContext(FavoriteContext);
-    if (!context) {
-        throw new Error('useFavorites must be used within FavoriteProvider');
-    }
-    return context;
+    return requireContext(
+        useContext(FavoriteContext),
+        'useFavorites',
+        'FavoriteProvider'
+    );
 };

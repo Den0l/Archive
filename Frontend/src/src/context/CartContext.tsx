@@ -9,6 +9,13 @@ import React, {
     ReactNode,
 } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { fetchListingById } from '@/services/listingService';
+import { requireContext } from '@/context/contextUtils';
+import {
+    readJsonFromStorage,
+    removeFromStorage,
+    writeJsonToStorage,
+} from '@/context/storageUtils';
 
 export interface CartItem {
     id: string;
@@ -31,6 +38,35 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const STORAGE_KEY_PREFIX = 'marketplace_cart_items';
+const GUEST_STORAGE_KEY = `${STORAGE_KEY_PREFIX}_guest`;
+const isCartItemsArray = (value: unknown): value is CartItem[] =>
+    Array.isArray(value);
+
+const mergeCartItems = (
+    accountItems: CartItem[],
+    guestItems: CartItem[]
+): CartItem[] => {
+    const merged = new Map<string, CartItem>();
+
+    for (const item of accountItems) {
+        merged.set(item.id, item);
+    }
+
+    for (const item of guestItems) {
+        const existing = merged.get(item.id);
+        if (!existing) {
+            merged.set(item.id, item);
+            continue;
+        }
+
+        merged.set(item.id, {
+            ...existing,
+            quantity: existing.quantity + (item.quantity || 1),
+        });
+    }
+
+    return Array.from(merged.values());
+};
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
@@ -44,31 +80,79 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }, [user?.id]);
 
     useEffect(() => {
-        setHydrated(false);
-        try {
-            const stored = localStorage.getItem(storageKey);
-            if (stored) {
-                const parsed = JSON.parse(stored) as CartItem[];
-                if (Array.isArray(parsed)) {
-                    setItems(parsed);
-                } else {
-                    setItems([]);
+        const readStorageItems = (key: string): CartItem[] => {
+            return readJsonFromStorage<CartItem[]>(
+                key,
+                [],
+                isCartItemsArray,
+                {
+                    removeOnError: true,
+                    onError: (error) => {
+                        console.warn('Failed to read cart from storage', error);
+                    },
                 }
-            } else {
-                setItems([]);
+            );
+        };
+
+        setHydrated(false);
+        let cancelled = false;
+
+        const load = async () => {
+            try {
+                if (user?.id) {
+                    const accountItems = readStorageItems(storageKey);
+                    const guestItems = readStorageItems(GUEST_STORAGE_KEY);
+
+                    let filteredGuestItems = guestItems;
+                    if (guestItems.length > 0) {
+                        const keepFlags = await Promise.all(
+                            guestItems.map(async (item) => {
+                                try {
+                                    const listing = await fetchListingById(item.id);
+                                    return listing.sellerId !== user.id;
+                                } catch {
+                                    return true;
+                                }
+                            })
+                        );
+                        filteredGuestItems = guestItems.filter(
+                            (_, index) => keepFlags[index]
+                        );
+                    }
+
+                    const mergedItems = mergeCartItems(
+                        accountItems,
+                        filteredGuestItems
+                    );
+
+                    if (cancelled) return;
+                    setItems(mergedItems);
+
+                    if (guestItems.length > 0) {
+                        writeJsonToStorage(storageKey, mergedItems);
+                        removeFromStorage(GUEST_STORAGE_KEY);
+                    }
+                } else {
+                    if (cancelled) return;
+                    setItems(readStorageItems(GUEST_STORAGE_KEY));
+                }
+            } finally {
+                if (!cancelled) {
+                    setHydrated(true);
+                }
             }
-        } catch (error) {
-            console.warn('Failed to read cart from storage', error);
-            localStorage.removeItem(storageKey);
-            setItems([]);
-        } finally {
-            setHydrated(true);
-        }
-    }, [storageKey]);
+        };
+
+        load();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [storageKey, user?.id]);
 
     useEffect(() => {
         if (!hydrated) return;
-        localStorage.setItem(storageKey, JSON.stringify(items));
+        writeJsonToStorage(storageKey, items);
     }, [items, hydrated, storageKey]);
 
     const addItem = (item: Omit<CartItem, 'quantity'>) => {
@@ -118,9 +202,5 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useCart = (): CartContextType => {
-    const context = useContext(CartContext);
-    if (!context) {
-        throw new Error('useCart must be used within CartProvider');
-    }
-    return context;
+    return requireContext(useContext(CartContext), 'useCart', 'CartProvider');
 };

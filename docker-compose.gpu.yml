@@ -1,0 +1,7 @@
+services:
+    rembg:
+        image: marketplace-rembg:gpu
+        build:
+            context: ./docker/rembg
+            dockerfile: Dockerfile.gpu
+        gpus: all

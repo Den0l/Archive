@@ -1,19 +1,22 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
 import { ListingGrid } from '../sharedComponents/ListingGrid';
 import { Page } from '@/types/api/page';
 import { Listing } from '@/types/api/listings';
-import { fetchListings, deleteListing, fetchListingById, updateListing } from '@/services/listingService';
+import { fetchListings, deleteListing } from '@/services/listingService';
 import { ListingFilter } from '@/types/api/categories';
 import { Ordering, OrderingDirection } from '@/types/api/categories';
 import { FilterPanel } from '@/sharedComponents/FilterPanel';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
+import { useConfirmDialog } from '@/context/ConfirmDialogContext';
+import { getApiErrorMessage } from '@/utils/validation';
 
 export default function Home() {
-    const router = useRouter();
     const { user: currentUser } = useAuth();
+    const { addNotification } = useNotification();
+    const { confirm } = useConfirmDialog();
     
     const [filter, setFilter] = useState<ListingFilter>({
         priceMin: null,
@@ -32,40 +35,57 @@ export default function Home() {
         items: [],
         totalPages: 1,
         pageNumber: 1,
-        pageSize: 30,
+        pageSize: 12,
     });
+
+    const effectiveFilter: ListingFilter = useMemo(() => ({
+        ...filter,
+        excludeSellerId: currentUser?.id ?? null,
+    }), [filter, currentUser?.id]);
 
     useEffect(() => {
         // reload on filter or page change
         const getListings = async () => {
             try {
                 var res = await fetchListings(
-                    filter,
+                    effectiveFilter,
                     pageNumber,
                     pageData.pageSize
                 );
                 setPageData(res);
             } catch (error) {
                 console.error('Не удалось загрузить объявления', error);
+                addNotification('Не удалось загрузить объявления.', {
+                    level: 'error',
+                    importance: 'high',
+                });
             }
         };
         getListings();
-    }, [filter, pageNumber, pageData.pageSize]);
+    }, [effectiveFilter, pageNumber, pageData.pageSize, addNotification]);
 
     const handleDeleteListing = async (listingId: string) => {
-        if (!window.confirm('Вы уверены, что хотите удалить это объявление?'))
+        const shouldDelete = await confirm({
+            title: 'Удаление объявления',
+            message: 'Вы уверены, что хотите удалить это объявление?',
+            confirmText: 'Удалить',
+            cancelText: 'Отмена',
+            variant: 'danger',
+        });
+        if (!shouldDelete)
             return;
         try {
             await deleteListing(listingId);
             const res = await fetchListings(
-                filter,
+                effectiveFilter,
                 pageNumber,
                 pageData.pageSize
             );
             setPageData(res);
         } catch (err: any) {
-            alert(
-                err.response?.data?.message || 'Не удалось удалить объявление'
+            addNotification(
+                getApiErrorMessage(err, 'Не удалось удалить объявление.'),
+                { level: 'error', importance: 'high' }
             );
         }
     };
@@ -78,26 +98,20 @@ export default function Home() {
             <ListingGrid
                 page={pageData}
                 onPageChange={setPageNumber}
-                renderActions={
-                    currentUser
-                        ? (listing) =>
-                            currentUser.id === listing.sellerId ? (
-                                <button
-                                    className="btn btn-sm btn-outline-primary listing-action-btn"
-                                    onClick={() =>
-                                        router.push(`/listing/${listing.id}/edit`)
-                                    }
-                                >
-                                    Редактировать
-                                </button>
-                            ) : null
-                        : undefined
-                }
+                onListingUpdated={async () => {
+                    const res = await fetchListings(
+                        effectiveFilter,
+                        pageNumber,
+                        pageData.pageSize
+                    );
+                    setPageData(res);
+                }}
             />
             </section>
             <aside className="sidebar">
             <FilterPanel
                 categoryName={null}
+                mobileCategorySelectionEnabled
                 priceEnabled
                 stateOfItemEnabled
                 listingPropertiesEnabled={false}

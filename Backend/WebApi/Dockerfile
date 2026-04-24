@@ -31,6 +31,7 @@ WORKDIR /app
 
 # copy over just the publish output
 COPY --from=build /app/publish .
+COPY WebApi/.env ./.env
 
 # will listen on port 80 inside container
 ENV ASPNETCORE_URLS=http://+:80

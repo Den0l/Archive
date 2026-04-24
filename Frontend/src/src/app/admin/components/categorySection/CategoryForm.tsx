@@ -8,7 +8,7 @@ import {
 } from '@/utils/validation';
 
 interface CategoryFormProps {
-    onSubmit: (name: string) => void;
+    onSubmit: (name: string) => boolean | Promise<boolean>;
     initialValue?: string;
     placeholder?: string;
 }
@@ -21,7 +21,7 @@ export default function CategoryForm({
     const [categoryName, setCategoryName] = useState(initialValue);
     const [error, setError] = useState('');
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const normalizedName = normalizeSingleLine(categoryName);
         const validationError = validateEntityName(
             'Название категории',
@@ -34,39 +34,48 @@ export default function CategoryForm({
             return;
         }
 
-        onSubmit(normalizedName);
-        setCategoryName('');
+        const isSubmitted = await onSubmit(normalizedName);
+        if (isSubmitted) {
+            setCategoryName('');
+        }
     };
 
     return (
-        <div className="mt-2">
-            <input
-                type="text"
-                className={`form-control ${error ? 'is-invalid' : ''}`}
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                onBlur={() => {
-                    const normalized = normalizeSingleLine(categoryName);
-                    setCategoryName(normalized);
-                    setError(
-                        validateEntityName(
-                            'Название категории',
-                            normalized
-                        ) || ''
-                    );
-                }}
-                placeholder={placeholder}
-                minLength={VALIDATION_LIMITS.entityNameMinLength}
-                maxLength={VALIDATION_LIMITS.entityNameMaxLength}
-                aria-invalid={Boolean(error)}
-            />
-            {error && (
-                <div className="invalid-feedback d-block">{error}</div>
-            )}
+        <div className="mt-2 admin-create-row admin-category-form">
+            <div className="admin-create-row__field">
+                <input
+                    type="text"
+                    className={`form-control admin-create-row__control ${
+                        error ? 'is-invalid' : ''
+                    }`}
+                    value={categoryName}
+                    onChange={(e) => {
+                        setCategoryName(e.target.value);
+                        setError('');
+                    }}
+                    onBlur={() => {
+                        const normalized = normalizeSingleLine(categoryName);
+                        setCategoryName(normalized);
+                        setError(
+                            validateEntityName(
+                                'Название категории',
+                                normalized
+                            ) || ''
+                        );
+                    }}
+                    placeholder={placeholder}
+                    minLength={VALIDATION_LIMITS.entityNameMinLength}
+                    maxLength={VALIDATION_LIMITS.entityNameMaxLength}
+                    aria-invalid={Boolean(error)}
+                />
+                <div className="invalid-feedback d-block field-error-slot">
+                    {error || '\u00A0'}
+                </div>
+            </div>
             <button
                 type="button"
-                className="btn btn-success ml-2"
-                onClick={handleSubmit}
+                className="btn btn-success admin-create-row__submit admin-category-form__submit"
+                onClick={() => void handleSubmit()}
             >
                 Добавить категорию
             </button>

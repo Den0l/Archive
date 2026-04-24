@@ -5,8 +5,8 @@ import { CategoryHierarchy } from '@/types/api/categories';
 
 interface CategoryTreeProps {
     categories: CategoryHierarchy[];
-    onAddSubcategory: (parentId: string, name: string) => void;
-    onDeleteCategory: (categoryId: string) => void;
+    onAddSubcategory: (name: string, parentId: string) => boolean | Promise<boolean>;
+    onDeleteCategory: (categoryId: string) => boolean | Promise<boolean>;
 }
 
 export default function CategoryTree({

@@ -16,16 +16,16 @@ export default function AvailablePropertiesList({
 }: AvailablePropertiesListProps) {
     return (
         <div className="mt-4">
-            <ul className="list-unstyled p-0 m-0">
+            <ul className="list-unstyled p-0 m-0 admin-available-property-list">
                 {availableProperties.map((property, index) => (
                     <li
                         key={property.id}
                         className={`
-          d-flex justify-content-between align-items-center
+          d-flex justify-content-between align-items-center admin-available-property-row
           py-2 ${index < availableProperties.length - 1 ? 'border-bottom' : ''}
         `}
                     >
-                        <div className="form-check d-flex align-items-center">
+                        <div className="form-check d-flex align-items-center admin-available-property-row__check">
                             <input
                                 className="form-check-input me-2"
                                 type="checkbox"
@@ -51,13 +51,13 @@ export default function AvailablePropertiesList({
                 )}
             </ul>
 
-            <div className="mt-3 text-end">
+            <div className="mt-3 text-end admin-available-property-actions">
                 <button
-                    className="btn btn-success"
+                    className="btn btn-success admin-available-property-actions__button"
                     onClick={onAdd}
                     disabled={selectedProperties.length === 0}
                 >
-                    Добавить Выбранные характеристики
+                    Добавить параметр
                 </button>
             </div>
         </div>

@@ -1,0 +1,441 @@
+.adminScope :global(.container-admin) {
+    max-width: 100rem;
+    margin: var(--spacing-2xl) auto;
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(to bottom, #ffffff, #ffef99);
+    border: 0.25rem solid #ff9900;
+    box-shadow: var(--shadow-lg);
+    width: 90%;
+    overflow-x: auto;
+}
+
+.adminScope :global(.container-admin.admin-page),
+.adminScope :global(.admin-category-page) {
+    align-items: stretch;
+    overflow-x: visible;
+}
+
+.adminScope :global(.card-admin) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    width: 97%;
+    margin: var(--spacing-md);
+    word-wrap: break-word;
+    background-color: #ffffff;
+    background-clip: border-box;
+    border: 0.2rem solid #ff9900;
+    border-radius: 0;
+    box-shadow: var(--shadow-lg);
+    flex: 1;
+    padding: 1rem;
+}
+
+.adminScope :global(.card-admin > .card-body) {
+    width: 100%;
+    max-width: none;
+    align-items: stretch;
+}
+
+.adminScope :global(.admin-category-item__row) {
+    width: 100%;
+}
+
+.adminScope :global(.admin-category-item__actions) {
+    justify-content: flex-end;
+}
+
+.adminScope :global(.admin-category-item__action-btn) {
+    margin: 0;
+    width: 11rem;
+    flex: 0 0 11rem;
+    justify-content: center;
+}
+
+.adminScope :global(.admin-category-title-block) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.adminScope :global(.admin-category-name-trigger) {
+    margin: 0;
+    padding: 0;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    color: #000099;
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    line-height: var(--line-height-tight);
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-thickness: 0.1rem;
+    text-underline-offset: 0.15rem;
+}
+
+.adminScope :global(.admin-category-name-trigger:hover) {
+    background: transparent;
+    color: #0000cc;
+}
+
+.adminScope :global(.admin-category-name-input) {
+    margin-top: 0;
+    width: min(100%, 32rem);
+}
+
+.adminScope :global(.admin-category-item__children) {
+    margin-bottom: 0;
+}
+
+.adminScope :global(.admin-management-list) {
+    padding: var(--spacing-sm);
+}
+
+.adminScope :global(.admin-management-item) {
+    gap: var(--spacing-sm);
+    justify-content: space-between;
+}
+
+.adminScope :global(.admin-management-item__title) {
+    min-width: 0;
+}
+
+.adminScope :global(.admin-management-item__actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.adminScope :global(.admin-actions-menu) {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.adminScope :global(.admin-actions-menu__trigger) {
+    display: none;
+    width: 2.25rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    margin: 0;
+}
+
+.adminScope :global(.admin-actions-menu__panel) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.adminScope :global(.admin-management-item__button) {
+    margin: 0;
+}
+
+.adminScope :global(.admin-management-item__role-toggle) {
+    margin: 0;
+    padding-left: 1.5em;
+}
+
+.adminScope :global(.admin-property-form__submit),
+.adminScope :global(.admin-property-value-form__submit),
+.adminScope :global(.admin-category-form__submit) {
+    margin: 0;
+}
+
+.adminScope :global(.admin-create-row) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: flex-start;
+}
+
+.adminScope :global(.admin-create-row__field) {
+    flex: inherit;
+    min-width: 0;
+}
+
+.adminScope :global(.admin-create-row__control) {
+    height: 2.75rem;
+    margin-top: 0;
+    margin-left: 1.1rem;
+}
+
+.adminScope :global(.admin-create-row__submit) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    max-height: 2.75rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    align-self: flex-start;
+    margin: 0;
+}
+
+.adminScope :global(.admin-category-property-row) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    flex-wrap: nowrap;
+}
+
+.adminScope :global(.admin-category-property-row__button) {
+    margin: 0;
+    width: auto;
+    flex: 0 0 auto;
+}
+
+@media (min-width: 768px) {
+    .adminScope :global(.admin-create-row) {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .adminScope :global(.admin-create-row__submit) {
+        align-self: flex-start;
+        width: auto;
+        flex: 0 0 auto;
+    }
+}
+
+.adminScope :global(.admin-property-item__actions) {
+    justify-content: flex-end;
+}
+
+.adminScope :global(.admin-property-item__actions .btn),
+.adminScope :global(.admin-property-item__edit .btn),
+.adminScope :global(.admin-property-value-item__actions .btn),
+.adminScope :global(.admin-property-value-item__edit .btn) {
+    margin: 0;
+    width: auto;
+    max-width: none;
+    flex: 0 0 auto;
+}
+
+.adminScope :global(.admin-property-value-item__name),
+.adminScope :global(.admin-category-property-row__name) {
+    overflow-wrap: anywhere;
+}
+
+.adminScope :global(.admin-available-property-actions__button) {
+    margin: 0;
+    width: auto;
+    max-width: none;
+}
+
+.adminScope :global(.admin-page__tabs) {
+    align-items: stretch;
+}
+
+.adminScope :global(.admin-page__tabs .nav-item) {
+    flex: 1 1 12rem;
+    margin-bottom: 0;
+}
+
+.adminScope :global(.admin-page__tabs .nav-link) {
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .adminScope :global(.container-admin) {
+        width: 95%;
+        padding: var(--spacing-md);
+    }
+
+    .adminScope :global(.container-admin.admin-page),
+    .adminScope :global(.admin-category-page) {
+        align-items: stretch;
+    }
+
+    .adminScope :global(.admin-category-layout) {
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    .adminScope :global(.admin-category-title-block) {
+        align-items: stretch;
+    }
+
+    .adminScope :global(.card-admin) {
+        margin: var(--spacing-sm) 0;
+    }
+
+    .adminScope :global(.admin-category-item__actions) {
+        width: auto;
+        align-self: flex-end;
+    }
+
+    .adminScope :global(.admin-category-item__action-btn) {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    .adminScope :global(.admin-category-item__children) {
+        margin-left: 0;
+        padding-left: var(--spacing-md);
+    }
+
+    .adminScope :global(.admin-management-list) {
+        padding: var(--spacing-xs);
+    }
+
+    .adminScope :global(.admin-management-item) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .adminScope :global(.admin-management-item__title) {
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .adminScope :global(.admin-management-item__actions) {
+        width: auto;
+        align-self: flex-end;
+        justify-content: flex-end;
+    }
+
+    .adminScope :global(.admin-management-item__button),
+    .adminScope :global(.admin-management-item__role-toggle) {
+        width: 100%;
+    }
+
+    .adminScope :global(.admin-category-property-row__actions),
+    .adminScope :global(.admin-property-item__actions),
+    .adminScope :global(.admin-property-value-item__actions) {
+        width: auto;
+        align-self: flex-end;
+    }
+
+    .adminScope :global(.admin-actions-menu) {
+        width: auto;
+        justify-content: flex-end;
+    }
+
+    .adminScope :global(.admin-actions-menu__trigger) {
+        display: inline-flex;
+    }
+
+    .adminScope :global(.admin-actions-menu__panel) {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 0.25rem);
+        z-index: 20;
+        min-width: min(16rem, calc(100vw - 3rem));
+        max-width: calc(100vw - 2rem);
+        background: #fff;
+        border: 0.15rem solid #ff9900;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-md);
+        padding: var(--spacing-xs);
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-xs);
+    }
+
+    .adminScope :global(.admin-actions-menu--open .admin-actions-menu__panel) {
+        display: flex;
+    }
+
+    .adminScope :global(.admin-actions-menu__panel .btn),
+    .adminScope :global(.admin-actions-menu__panel .form-check) {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+    }
+
+    .adminScope :global(.admin-property-item__header),
+    .adminScope :global(.admin-property-item__edit),
+    .adminScope :global(.admin-property-item__edit-input),
+    .adminScope :global(.admin-property-value-item),
+    .adminScope :global(.admin-property-value-item__edit),
+    .adminScope :global(.admin-property-value-item__edit-input) {
+        width: 100%;
+    }
+
+    .adminScope :global(.admin-property-item__actions .btn),
+    .adminScope :global(.admin-property-item__edit .btn),
+    .adminScope :global(.admin-property-value-item__actions .btn),
+    .adminScope :global(.admin-property-value-item__edit .btn),
+    .adminScope :global(.admin-property-form__submit),
+    .adminScope :global(.admin-property-value-form__submit),
+    .adminScope :global(.admin-category-property-row__button),
+    .adminScope :global(.admin-available-property-actions__button) {
+        width: 100%;
+    }
+
+    .adminScope :global(.admin-property-value-item) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .adminScope :global(.admin-property-value-item__name) {
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .adminScope :global(.admin-category-property-row),
+    .adminScope :global(.admin-available-property-row) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .adminScope :global(.admin-available-property-row__check) {
+        margin: 0;
+    }
+
+    .adminScope :global(.admin-available-property-actions) {
+        text-align: left;
+    }
+
+    .adminScope :global(.admin-page__tabs) {
+        padding: var(--spacing-sm);
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .adminScope :global(.admin-page__tabs .nav-item) {
+        flex: 0 0 auto;
+        min-width: 10rem;
+        margin-bottom: 0;
+    }
+
+    .adminScope :global(.admin-page__tabs .nav-link) {
+        white-space: normal;
+        line-height: 1.2;
+        min-height: 3rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .adminScope :global(.container-admin) {
+        width: 98%;
+        padding: var(--spacing-sm);
+    }
+
+    .adminScope :global(.admin-page__tabs .nav-item) {
+        min-width: 8.5rem;
+    }
+}

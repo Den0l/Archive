@@ -1,0 +1,257 @@
+.settingsPage {
+    width: 95%;
+}
+
+.settingsHeader {
+    margin-bottom: 1rem;
+}
+
+.settingsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+        "email password"
+        "notifications theme"
+        "subscriptions subscriptions";
+    gap: 1rem;
+    align-items: start;
+}
+
+.settingsCard {
+    margin: 0;
+    height: 100%;
+}
+
+.emailCard {
+    grid-area: email;
+}
+
+.passwordCard {
+    grid-area: password;
+}
+
+.notificationsCard {
+    grid-area: notifications;
+}
+
+.themeCard {
+    grid-area: theme;
+}
+
+.subscriptionsCard {
+    grid-area: subscriptions;
+}
+
+.settingsPage :global(.card-body) {
+    height: 100%;
+}
+
+.settingsPage :global(.form-control),
+.settingsPage :global(input),
+.settingsPage :global(select),
+.settingsPage :global(textarea) {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+.settingsPage :global(.btn) {
+    max-width: 15rem;
+}
+
+.sectionButton {
+    display: flex;
+    justify-content: center;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+.passwordFields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.passwordField {
+    width: 100%;
+}
+
+.settingsPage :global(.form-check) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding-left: 0;
+}
+
+.settingsPage :global(.form-check-input) {
+    float: none;
+    margin: 0;
+    width: 0.9rem;
+    height: 0.9rem;
+    flex: 0 0 0.9rem;
+}
+
+.settingsPage :global(.form-check-label) {
+    margin: 0;
+    text-align: left;
+}
+
+.subscriptionsList {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+.subscriptionItem {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-width: 0 !important;
+}
+
+.pendingEmailInfo {
+    margin-bottom: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--settings-pending-email-border, #ffd27a);
+    background: var(--settings-pending-email-bg, #fff7df);
+    color: var(--settings-pending-email-text, #7a5200);
+    font-size: 0.95rem;
+}
+
+.themeOptions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.65rem;
+}
+
+.themeOption {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.themeOption:hover {
+    border-color: #f59e0b;
+    background: transparent;
+}
+
+.themeOption:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.themeOptionActive {
+    border-color: #2563eb;
+    background: transparent;
+}
+
+:global(html[data-theme='light']) .themeOption,
+:global(html[data-theme='dark']) .themeOption {
+    border-color: var(--theme-border-strong) !important;
+}
+
+:global(html[data-theme='light']) .themeOptionActive,
+:global(html[data-theme='dark']) .themeOptionActive {
+    border-color: var(--theme-accent-blue) !important;
+    box-shadow: inset 0 0 0 1px var(--theme-accent-blue) !important;
+}
+
+:global(html[data-theme='light']) .themeOptionActive:hover,
+:global(html[data-theme='dark']) .themeOptionActive:hover {
+    border-color: var(--theme-accent-blue) !important;
+}
+
+.themeOptionTitle {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.themeOptionDescription {
+    display: block;
+    font-size: 0.86rem;
+    color: var(--settings-theme-current-color, #495057);
+    line-height: 1.35;
+}
+
+.themeCurrentValue {
+    font-size: 0.95rem;
+    color: var(--settings-theme-current-color, #495057);
+}
+
+.subscriptionsListScroll {
+    max-height: 17rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.25rem !important;
+}
+
+.subscriptionNameWrap {
+    min-width: 0;
+    flex: 1 1 auto;
+    margin-right: 0.75rem;
+}
+
+.subscriptionLink {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 991px) {
+    .settingsPage {
+        max-width: 90% !important;
+    }
+
+    .settingsHeader h1 {
+        font-size: clamp(1.25rem, 2.6vw, 1.6rem);
+    }
+
+    .settingsGrid {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "email"
+            "password"
+            "notifications"
+            "theme"
+            "subscriptions";
+        gap: 0.75rem;
+    }
+
+    .settingsCard :global(.card-body) {
+        padding: 0.9rem !important;
+    }
+
+    .settingsCard :global(.h4) {
+        font-size: 1.05rem;
+    }
+
+    .settingsCard :global(.form-label),
+    .settingsCard :global(.form-check-label),
+    .settingsCard :global(.text-muted),
+    .settingsCard :global(.list-group-item) {
+        font-size: 0.92rem;
+    }
+
+    .settingsCard :global(.btn) {
+        font-size: 0.9rem;
+        padding: 0.42rem 0.7rem;
+    }
+}

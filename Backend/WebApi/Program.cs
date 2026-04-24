@@ -6,11 +6,10 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json.Serialization;
 using WebApi.Mappings;
-using DotNetEnv;
 using WebApi.Hubs;
 using WebApi.Services;
 
-Env.Load();
+LoadBackendEnvFile();
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -61,9 +60,19 @@ builder.Services.AddControllers().AddJsonOptions(options => {
 	options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
 builder.Services.AddSignalR();
-builder.Services.AddInfrastructure();
+builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IReceiptEmailService, SmtpReceiptEmailService>();
+builder.Services.AddScoped<INotificationEmailService, SmtpNotificationEmailService>();
+builder.Services.AddSingleton<BackgroundNotificationQueue>();
+builder.Services.AddSingleton<IBackgroundNotificationQueue>(
+    serviceProvider => serviceProvider.GetRequiredService<BackgroundNotificationQueue>());
+builder.Services.AddHostedService(
+    serviceProvider => serviceProvider.GetRequiredService<BackgroundNotificationQueue>());
 builder.Services.AddScoped<ISystemUserProvider, SystemUserProvider>();
+builder.Services.Configure<YandexAiOptions>(
+    builder.Configuration.GetSection("YandexAi"));
+builder.Services.AddHttpClient<IYandexAiClient, YandexAiClient>();
+builder.Services.AddScoped<IListingAiAutofillService, ListingAiAutofillService>();
 
 
 builder.Services
@@ -112,10 +121,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => {
 	options.SwaggerDoc("v1", new OpenApiInfo { Title = "MarketplaceAPI", Version = "v1" });
 	options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme {
+		Description = "Enter JWT token in format: Bearer {your token}",
 		Name = "Authorization",
 		In = ParameterLocation.Header,
-		Type = SecuritySchemeType.ApiKey,
-		Scheme = JwtBearerDefaults.AuthenticationScheme
+		Type = SecuritySchemeType.Http,
+		Scheme = JwtBearerDefaults.AuthenticationScheme,
+		BearerFormat = "JWT"
 	});
 	options.AddSecurityRequirement(new OpenApiSecurityRequirement {
 		{
@@ -124,7 +135,6 @@ builder.Services.AddSwaggerGen(options => {
 					Type = ReferenceType.SecurityScheme,
 					Id = JwtBearerDefaults.AuthenticationScheme
 				},
-				Scheme = "Oauth2",
 				Name = JwtBearerDefaults.AuthenticationScheme,
 				In = ParameterLocation.Header
 			},
@@ -136,9 +146,19 @@ builder.Services.AddAutoMapper(typeof(Mappings));
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment()) {
+var swaggerEnabled =
+	app.Environment.IsDevelopment() ||
+	app.Configuration.GetValue<bool>("Swagger:Enabled");
+
+if (swaggerEnabled) {
 	app.UseSwagger();
-	app.UseSwaggerUI();
+	app.UseSwaggerUI(options =>
+	{
+		options.SwaggerEndpoint("/swagger/v1/swagger.json", "MarketplaceAPI v1");
+		options.RoutePrefix = "swagger";
+		options.EnablePersistAuthorization();
+		options.DisplayRequestDuration();
+	});
 }
 
 
@@ -167,3 +187,102 @@ app.MapControllers();
 app.MapHub<ChatHub>("/chathub");
 
 app.Run();
+
+static void LoadBackendEnvFile()
+{
+    var keysLoadedFromEnvFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var envFiles = ResolveEnvFiles();
+    if (envFiles.Count == 0)
+    {
+        return;
+    }
+
+    foreach (var envFilePath in envFiles)
+    {
+        foreach (var rawLine in File.ReadAllLines(envFilePath))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var separatorIndex = line.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            var key = line[..separatorIndex].Trim();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            var existingValue = Environment.GetEnvironmentVariable(key);
+            var hasExternalValue =
+                !string.IsNullOrWhiteSpace(existingValue) &&
+                !keysLoadedFromEnvFiles.Contains(key);
+            if (hasExternalValue)
+            {
+                continue;
+            }
+
+            var value = line[(separatorIndex + 1)..].Trim().Trim('"');
+            Environment.SetEnvironmentVariable(key, value);
+            keysLoadedFromEnvFiles.Add(key);
+        }
+    }
+
+    static List<string> ResolveEnvFiles()
+    {
+        var envFiles = new List<string>();
+        var knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var currentDirectory = Directory.GetCurrentDirectory();
+        var repoRoot = FindRepoRoot(currentDirectory);
+
+        if (!string.IsNullOrWhiteSpace(repoRoot))
+        {
+            AddIfExists(Path.Combine(repoRoot, ".env"));
+            AddIfExists(Path.Combine(repoRoot, ".env.local"));
+            AddIfExists(Path.Combine(repoRoot, "Backend", "WebApi", ".env"));
+            AddIfExists(Path.Combine(repoRoot, "Backend", "WebApi", ".env.local"));
+        }
+
+        AddIfExists(Path.Combine(currentDirectory, ".env"));
+        AddIfExists(Path.Combine(currentDirectory, ".env.local"));
+        AddIfExists(Path.Combine(AppContext.BaseDirectory, ".env"));
+        AddIfExists(Path.Combine(AppContext.BaseDirectory, ".env.local"));
+
+        return envFiles;
+
+        void AddIfExists(string path)
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!File.Exists(fullPath) || !knownPaths.Add(fullPath))
+            {
+                return;
+            }
+
+            envFiles.Add(fullPath);
+        }
+    }
+
+    static string? FindRepoRoot(string startDirectory)
+    {
+        var directoryInfo = new DirectoryInfo(startDirectory);
+        while (directoryInfo != null)
+        {
+            var composePath = Path.Combine(directoryInfo.FullName, "docker-compose.yml");
+            if (File.Exists(composePath))
+            {
+                return directoryInfo.FullName;
+            }
+
+            directoryInfo = directoryInfo.Parent;
+        }
+
+        return null;
+    }
+}

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useClickOutside } from '@/sharedComponents/hooks/useClickOutside';
 
 interface CustomDropdownProps {
     options: { id: string; name: string; level?: number }[];
@@ -19,22 +20,12 @@ export default function CustomDropdown({
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    const selected = options.find((o) => o.id === selectedId);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (
-                wrapperRef.current &&
-                !wrapperRef.current.contains(event.target as Node)
-            ) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
+    const selected = options.find((option) => option.id === selectedId);
+    const closeDropdown = useCallback(() => {
+        setIsOpen(false);
     }, []);
+
+    useClickOutside(wrapperRef, closeDropdown);
 
     return (
         <div
@@ -60,7 +51,6 @@ export default function CustomDropdown({
                     style={{
                         zIndex: 1000,
                         borderRadius: '0.375rem',
-                        overflow: 'hidden',
                     }}
                 >
                     {options.map((option) => (

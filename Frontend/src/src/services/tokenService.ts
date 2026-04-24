@@ -1,4 +1,3 @@
-import api from './apiClient';
 import { jwtDecode } from 'jwt-decode';
 
 interface TokenPayload {

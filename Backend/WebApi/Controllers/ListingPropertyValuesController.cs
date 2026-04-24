@@ -33,7 +33,7 @@ namespace WebApi.Controllers {
         [HttpGet]
 		public async Task<IActionResult> GetAll() {
 			var domain = await repository.GetAllAsync();
-			return Ok(mapper.Map<List<ListingPropertyValueDto>>(domain));
+			return this.OkMapped<List<ListingPropertyValueDto>>(mapper, domain);
 		}
 		/// <summary>
 		/// Gets specified value. 
@@ -44,10 +44,10 @@ namespace WebApi.Controllers {
 		[Route("{id:Guid}")]
 		public async Task<IActionResult> GetById(Guid id) {
 			var domain = await repository.GetByIdAsync(id);
-			if (domain == null) {
-				return NotFound();
-			}
-			return Ok(mapper.Map<ListingPropertyValueDto>(domain));
+			return this.OkMappedOrNotFound<ListingPropertyValue, ListingPropertyValueDto>(
+                mapper,
+                domain
+            );
 		}
 		/// <summary>
 		/// Adds a new value to the specified listing property within CreateListingPropertyRequest.
@@ -59,7 +59,7 @@ namespace WebApi.Controllers {
         public async Task<IActionResult> Post(CreateListingPropertyValueRequest request) {
 			var domain = mapper.Map<ListingPropertyValue>(request);
 			domain = await repository.CreateAsync(domain);
-			return Ok(mapper.Map<ListingPropertyValueDto>(domain));
+			return this.OkMapped<ListingPropertyValueDto>(mapper, domain);
 		}
         /// <summary>
         /// Updates specified value.
@@ -73,10 +73,10 @@ namespace WebApi.Controllers {
         public async Task<IActionResult> Put(Guid id, UpdateListingPropertyValueRequest request) {
 			var domain = mapper.Map<ListingPropertyValue>(request);
 			domain = await repository.UpdateAsync(id, domain);
-			if (domain == null) {
-				return NotFound();
-			}
-			return Ok(mapper.Map<ListingPropertyValueDto>(domain));
+			return this.OkMappedOrNotFound<ListingPropertyValue, ListingPropertyValueDto>(
+                mapper,
+                domain
+            );
 		}
         /// <summary>
         /// Deletes specified value.
@@ -88,10 +88,10 @@ namespace WebApi.Controllers {
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id) {
 			var domain = await repository.DeleteAsync(id);
-			if (domain == null) {
-				return NotFound();
-			}
-			return Ok(mapper.Map<ListingPropertyValueDto>(domain));
+			return this.OkMappedOrNotFound<ListingPropertyValue, ListingPropertyValueDto>(
+                mapper,
+                domain
+            );
 		}
 	}
 }

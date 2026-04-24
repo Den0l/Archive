@@ -30,13 +30,25 @@ services:
         depends_on:
             - db
 
-    smtp4dev:
-        image: rnwood/smtp4dev:latest
-        container_name: smtp4dev
+    rembg:
+        image: danielgatis/rembg:2.0.75
+        container_name: marketplace-rembg
+        command: ["s", "--host", "0.0.0.0", "--port", "7000", "--log_level", "info", "--no-ui"]
         restart: unless-stopped
         ports:
-            - '8083:80'
-            - '2525:25'
+            - '7000:7000'
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "python",
+                    "-c",
+                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7000/api')"
+                ]
+            interval: 15s
+            timeout: 10s
+            retries: 10
+            start_period: 20s
 
     backend:
         build:
@@ -47,12 +59,15 @@ services:
         depends_on:
             db:
                 condition: service_healthy
-            smtp4dev:
-                condition: service_started
+            rembg:
+                condition: service_healthy
         env_file:
-            - .env
+            - ./.env
+            - ./Backend/WebApi/.env
         environment:
             ASPNETCORE_ENVIRONMENT: Development
+            MYSQL_HOST: db
+            Rembg__Endpoint: http://rembg:7000/api/remove
         volumes:
             - ./Backend/WebApi/images:/app/Images
         ports:

@@ -8,6 +8,7 @@ namespace Application.Filters
         public decimal? PriceMin { get; set; }
         public decimal? PriceMax { get; set; }
         public Guid? SellerId { get; set; }
+        public Guid? ExcludeSellerId { get; set; }
         public Guid? CityId { get; set; }
         public int? Radius { get; set; }
         public string? Search {  get; set; }

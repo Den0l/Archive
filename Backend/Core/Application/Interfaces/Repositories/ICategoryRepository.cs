@@ -16,6 +16,7 @@ namespace Application.Interfaces.Repositories {
 		public Task<Category> CreateAsync(Category category);
 		public Task<Category?> UpdateAsync(Guid id, Category category);
 		public Task<Category?> DeleteAsync(Guid id);
+		public Task<List<Listing>> GetDescendantListingsAsync(Guid categoryId);
 		public Task<Category?> AddListingPropertiesAsync(Guid categoryId, List<Guid> ListingPropertyIds);
 		public Task<Category?> RemoveListingPropertyAsync(Guid categoryId, Guid groupId);
 	}

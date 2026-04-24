@@ -29,6 +29,7 @@ namespace Infrastructure.Persistence.Repositories
         {
             return await dbContext.Orders
                 .Include(o => o.Listing)
+                    .ThenInclude(l => l.Images)
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
@@ -36,6 +37,7 @@ namespace Infrastructure.Persistence.Repositories
         {
             return await dbContext.Orders
                 .Include(o => o.Listing)
+                    .ThenInclude(l => l.Images)
                 .Where(o => o.ConversationId == conversationId)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
@@ -45,6 +47,7 @@ namespace Infrastructure.Persistence.Repositories
         {
             return await dbContext.Orders
                 .Include(o => o.Listing)
+                    .ThenInclude(l => l.Images)
                 .Where(o => o.ConversationId == conversationId)
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync();
@@ -54,11 +57,32 @@ namespace Infrastructure.Persistence.Repositories
         {
             return await dbContext.Orders
                 .Include(o => o.Listing)
+                    .ThenInclude(l => l.Images)
                 .Where(o =>
                     o.ListingId == listingId &&
                     o.Status == OrderStatus.Pending)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<Order>> GetByBuyerIdAsync(Guid buyerId)
+        {
+            return await dbContext.Orders
+                .Include(o => o.Listing)
+                    .ThenInclude(l => l.Images)
+                .Where(o => o.BuyerId == buyerId)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetBySellerIdAsync(Guid sellerId)
+        {
+            return await dbContext.Orders
+                .Include(o => o.Listing)
+                    .ThenInclude(l => l.Images)
+                .Where(o => o.SellerId == sellerId)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
         }
 
         public async Task UpdateAsync(Order order)

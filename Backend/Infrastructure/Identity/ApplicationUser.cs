@@ -16,6 +16,14 @@ namespace Infrastructure.Identity {
         [MaxLength(50)]
         public string NormalizedNickname { get; set; }
         public DateTime LastLoggedIn { get; set; }
+        [MaxLength(254)]
+        public string? PendingEmail { get; set; }
+        public DateTime? PendingEmailRequestedAt { get; set; }
+        public bool NotifyEmailOnNewMessage { get; set; } = true;
+        public bool NotifyEmailOnSellerOrder { get; set; } = true;
+        public bool NotifyEmailOnFollowedSellerListing { get; set; } = true;
+        public bool NotifyEmailOnLogin { get; set; } = true;
+        public bool MustChangePassword { get; set; }
         /// <summary>
         /// One to many relation with listings
         /// </summary>

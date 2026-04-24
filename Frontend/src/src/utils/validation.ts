@@ -1,4 +1,4 @@
-export const VALIDATION_LIMITS = {
+﻿export const VALIDATION_LIMITS = {
     emailMaxLength: 254,
     nicknameMinLength: 2,
     nicknameMaxLength: 50,
@@ -6,16 +6,16 @@ export const VALIDATION_LIMITS = {
     passwordMaxLength: 128,
     entityNameMinLength: 2,
     entityNameMaxLength: 80,
-    listingTitleMinLength: 5,
+    listingTitleMinLength: 3,
     listingTitleMaxLength: 120,
-    listingDescriptionMinLength: 20,
+    listingDescriptionMinLength: 0,
     listingDescriptionMaxLength: 2000,
     reviewMinLength: 10,
     reviewMaxLength: 1000,
     messageMaxLength: 1000,
     searchMaxLength: 100,
     cityQueryMaxLength: 100,
-    maxImageCount: 20,
+    maxImageCount: 10,
     maxImageSizeBytes: 10 * 1024 * 1024,
     priceMin: 1,
     priceMax: 1_000_000,
@@ -29,25 +29,26 @@ export const ALLOWED_IMAGE_EXTENSIONS = [
     '.jpeg',
     '.png',
     '.webp',
-    '.gif',
-    '.bmp',
-    '.avif',
+    '.heif',
+    '.heic',
 ];
 export const ALLOWED_IMAGE_MIME_TYPES = [
     'image/jpeg',
+    'image/jpg',
+    'image/pjpeg',
     'image/png',
     'image/webp',
-    'image/gif',
-    'image/bmp',
-    'image/x-ms-bmp',
-    'image/avif',
+    'image/heif',
+    'image/heic',
+    'image/heif-sequence',
+    'image/heic-sequence',
 ];
+export const ALLOWED_IMAGE_FORMATS_LABEL =
+    'JPG, JPEG, PNG, WEBP, HEIF и HEIC';
 export const IMAGE_UPLOAD_ACCEPT = [
     ...ALLOWED_IMAGE_EXTENSIONS,
     ...ALLOWED_IMAGE_MIME_TYPES,
 ].join(',');
-const PRICE_DECIMAL_SEPARATOR = ',';
-const PRICE_MAX_DECIMAL_DIGITS = 2;
 
 type TextValidationOptions = {
     label: string;
@@ -55,6 +56,9 @@ type TextValidationOptions = {
     maxLength: number;
     multiline?: boolean;
 };
+
+const formatValidationError = (message: string) =>
+    message.replace(/\.+\s*$/, '').trimEnd();
 
 export const normalizeSingleLine = (value: string) =>
     value.replace(/\s+/g, ' ').trim();
@@ -77,13 +81,19 @@ const validateText = (
         : normalizeSingleLine(value);
 
     if (!normalized) {
-        return `Поле "${label}" обязательно для заполнения.`;
+        return formatValidationError(
+            `Поле "${label}" обязательно для заполнения.`
+        );
     }
     if (normalized.length < minLength) {
-        return `Поле "${label}" должно содержать минимум ${minLength} символов.`;
+        return formatValidationError(
+            `Поле "${label}" должно содержать минимум ${minLength} символов.`
+        );
     }
     if (normalized.length > maxLength) {
-        return `Поле "${label}" должно содержать не больше ${maxLength} символов.`;
+        return formatValidationError(
+            `Поле "${label}" должно содержать не больше ${maxLength} символов.`
+        );
     }
 
     return null;
@@ -93,13 +103,13 @@ export const validateEmail = (value: string) => {
     const normalized = value.trim();
 
     if (!normalized) {
-        return 'Укажите email.';
+        return 'Укажите email';
     }
     if (normalized.length > VALIDATION_LIMITS.emailMaxLength) {
-        return `Email должен содержать не больше ${VALIDATION_LIMITS.emailMaxLength} символов.`;
+        return `Email должен содержать не больше ${VALIDATION_LIMITS.emailMaxLength} символов`;
     }
     if (!EMAIL_REGEX.test(normalized)) {
-        return 'Введите корректный email.';
+        return 'Введите корректный email';
     }
 
     return null;
@@ -107,13 +117,13 @@ export const validateEmail = (value: string) => {
 
 export const validatePassword = (value: string) => {
     if (!value) {
-        return 'Укажите пароль.';
+        return 'Укажите пароль';
     }
     if (value.length < VALIDATION_LIMITS.passwordMinLength) {
-        return `Пароль должен содержать минимум ${VALIDATION_LIMITS.passwordMinLength} символов.`;
+        return `Пароль должен содержать минимум ${VALIDATION_LIMITS.passwordMinLength} символов`;
     }
     if (value.length > VALIDATION_LIMITS.passwordMaxLength) {
-        return `Пароль должен содержать не больше ${VALIDATION_LIMITS.passwordMaxLength} символов.`;
+        return `Пароль должен содержать не больше ${VALIDATION_LIMITS.passwordMaxLength} символов`;
     }
 
     return null;
@@ -140,13 +150,20 @@ export const validateListingTitle = (value: string) =>
         maxLength: VALIDATION_LIMITS.listingTitleMaxLength,
     });
 
-export const validateListingDescription = (value: string) =>
-    validateText(value, {
-        label: 'Описание',
-        minLength: VALIDATION_LIMITS.listingDescriptionMinLength,
-        maxLength: VALIDATION_LIMITS.listingDescriptionMaxLength,
-        multiline: true,
-    });
+export const validateListingDescription = (value: string) => {
+    const normalized = normalizeMultiline(value);
+
+    if (!normalized) {
+        return null;
+    }
+    if (normalized.length > VALIDATION_LIMITS.listingDescriptionMaxLength) {
+        return formatValidationError(
+            `Поле "Описание" должно содержать не больше ${VALIDATION_LIMITS.listingDescriptionMaxLength} символов.`
+        );
+    }
+
+    return null;
+};
 
 export const validateReviewText = (value: string) =>
     validateText(value, {
@@ -171,7 +188,9 @@ export const validateSearchText = (value: string) => {
         return null;
     }
     if (normalized.length > VALIDATION_LIMITS.searchMaxLength) {
-        return `Поисковый запрос должен содержать не больше ${VALIDATION_LIMITS.searchMaxLength} символов.`;
+        return formatValidationError(
+            `Поисковый запрос должен содержать не больше ${VALIDATION_LIMITS.searchMaxLength} символов.`
+        );
     }
 
     return null;
@@ -184,7 +203,9 @@ export const validateCityQuery = (value: string) => {
         return null;
     }
     if (normalized.length > VALIDATION_LIMITS.cityQueryMaxLength) {
-        return `Название города должно содержать не больше ${VALIDATION_LIMITS.cityQueryMaxLength} символов.`;
+        return formatValidationError(
+            `Название города должно содержать не больше ${VALIDATION_LIMITS.cityQueryMaxLength} символов.`
+        );
     }
 
     return null;
@@ -192,44 +213,27 @@ export const validateCityQuery = (value: string) => {
 
 export const validatePrice = (value: number | null | undefined) => {
     if (value == null || Number.isNaN(value)) {
-        return 'Укажите цену.';
+        return formatValidationError('Укажите цену.');
+    }
+    if (!Number.isInteger(value)) {
+        return formatValidationError('Цена должна быть целым числом.');
     }
     if (value < VALIDATION_LIMITS.priceMin) {
-        return `Цена должна быть не меньше ${VALIDATION_LIMITS.priceMin}.`;
+        return formatValidationError(
+            `Цена должна быть не меньше ${VALIDATION_LIMITS.priceMin}.`
+        );
     }
     if (value > VALIDATION_LIMITS.priceMax) {
-        return `Цена должна быть не больше ${VALIDATION_LIMITS.priceMax}.`;
+        return formatValidationError(
+            `Цена должна быть не больше ${VALIDATION_LIMITS.priceMax}.`
+        );
     }
 
     return null;
 };
 
 export const sanitizePriceInput = (value: string) => {
-    const normalized = value.replace(/\s+/g, '').replace(/\./g, ',');
-    let result = '';
-    let hasSeparator = false;
-    let decimalDigits = 0;
-
-    for (const char of normalized) {
-        if (/\d/.test(char)) {
-            if (hasSeparator) {
-                if (decimalDigits >= PRICE_MAX_DECIMAL_DIGITS) {
-                    continue;
-                }
-                decimalDigits += 1;
-            }
-
-            result += char;
-            continue;
-        }
-
-        if (char === PRICE_DECIMAL_SEPARATOR && !hasSeparator) {
-            result += result.length === 0 ? `0${PRICE_DECIMAL_SEPARATOR}` : char;
-            hasSeparator = true;
-        }
-    }
-
-    return result;
+    return value.replace(/\D/g, '');
 };
 
 export const parsePriceInput = (value: string) => {
@@ -239,7 +243,7 @@ export const parsePriceInput = (value: string) => {
         return undefined;
     }
 
-    const parsed = Number(normalized.replace(PRICE_DECIMAL_SEPARATOR, '.'));
+    const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : undefined;
 };
 
@@ -248,7 +252,7 @@ export const formatPriceInput = (value: number | null | undefined) => {
         return '';
     }
 
-    return value.toString().replace('.', PRICE_DECIMAL_SEPARATOR);
+    return Math.round(value).toString();
 };
 
 export const validateOptionalPrice = (value: number | null) => {
@@ -264,13 +268,17 @@ export const validateRadius = (value: number | null) => {
         return null;
     }
     if (Number.isNaN(value)) {
-        return 'Укажите корректный радиус.';
+        return formatValidationError('Укажите корректный радиус.');
     }
     if (value < VALIDATION_LIMITS.radiusMin) {
-        return `Радиус должен быть не меньше ${VALIDATION_LIMITS.radiusMin} км.`;
+        return formatValidationError(
+            `Радиус должен быть не меньше ${VALIDATION_LIMITS.radiusMin} км.`
+        );
     }
     if (value > VALIDATION_LIMITS.radiusMax) {
-        return `Радиус должен быть не больше ${VALIDATION_LIMITS.radiusMax} км.`;
+        return formatValidationError(
+            `Радиус должен быть не больше ${VALIDATION_LIMITS.radiusMax} км.`
+        );
     }
 
     return null;
@@ -295,7 +303,9 @@ export const validatePriceRange = (
         maxPrice != null &&
         minPrice > maxPrice
     ) {
-        return 'Минимальная цена не может быть больше максимальной.';
+        return formatValidationError(
+            'Минимальная цена не может быть больше максимальной.'
+        );
     }
 
     return null;
@@ -306,7 +316,7 @@ export const validateRequiredSelection = (
     label: string
 ) => {
     if (!value) {
-        return `Выберите значение поля "${label}".`;
+        return formatValidationError(`Выберите значение поля "${label}".`);
     }
 
     return null;
@@ -317,7 +327,9 @@ export const validateImageFiles = (
     existingCount = 0
 ) => {
     if (existingCount + newFiles.length > VALIDATION_LIMITS.maxImageCount) {
-        return `Можно загрузить не больше ${VALIDATION_LIMITS.maxImageCount} фотографий.`;
+        return formatValidationError(
+            `Можно загрузить не больше ${VALIDATION_LIMITS.maxImageCount} фотографий.`
+        );
     }
 
     for (const file of newFiles) {
@@ -326,21 +338,29 @@ export const validateImageFiles = (
             .toLowerCase();
 
         if (!ALLOWED_IMAGE_EXTENSIONS.includes(extension)) {
-            return 'Разрешены файлы JPG, PNG, WEBP, GIF, BMP и AVIF.';
+            return formatValidationError(
+                `Разрешены файлы ${ALLOWED_IMAGE_FORMATS_LABEL}.`
+            );
         }
         if (
             file.type &&
             !ALLOWED_IMAGE_MIME_TYPES.includes(file.type)
         ) {
-            return 'Разрешены файлы JPG, PNG, WEBP, GIF, BMP и AVIF.';
+            return formatValidationError(
+                `Разрешены файлы ${ALLOWED_IMAGE_FORMATS_LABEL}.`
+            );
         }
         if (file.size > VALIDATION_LIMITS.maxImageSizeBytes) {
-            return 'Размер одного изображения не должен превышать 10 МБ.';
+            return formatValidationError(
+                'Размер одного изображения не должен превышать 10 МБ.'
+            );
         }
     }
 
     return null;
 };
+
+const STATUS_CODE_MESSAGE_REGEX = /^Request failed with status code \d+$/;
 
 export const getApiErrorMessage = (
     error: unknown,
@@ -373,7 +393,11 @@ export const getApiErrorMessage = (
     }
 
     const message = (error as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) {
+    if (
+        typeof message === 'string' &&
+        message.trim() &&
+        !STATUS_CODE_MESSAGE_REGEX.test(message)
+    ) {
         return message;
     }
 

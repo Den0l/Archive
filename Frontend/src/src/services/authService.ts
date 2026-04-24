@@ -1,12 +1,34 @@
-import api from '@/services/apiClient';
-import { LoginRequest, LoginResponse, RegisterRequest } from '@/types/api/auth';
+import { postData } from './httpClient';
+import {
+    ConfirmEmailChangeRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
+} from '@/types/api/auth';
 
 export const registerUser = async (data: RegisterRequest): Promise<string> => {
-    const response = await api.post<string>('/api/Auth/Register', data);
-    return response.data;
+    return postData<string, RegisterRequest>('/api/Auth/Register', data);
 };
 
 export const loginUser = async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/api/Auth/Login', data);
-    return response.data;
+    return postData<LoginResponse, LoginRequest>('/api/Auth/Login', data);
+};
+
+export const forgotPassword = async (
+    data: ForgotPasswordRequest
+): Promise<string> => {
+    return postData<string, ForgotPasswordRequest>(
+        '/api/Auth/ForgotPassword',
+        data
+    );
+};
+
+export const confirmEmailChange = async (
+    data: ConfirmEmailChangeRequest
+): Promise<string> => {
+    return postData<string, ConfirmEmailChangeRequest>(
+        '/api/Auth/confirm-email-change',
+        data
+    );
 };

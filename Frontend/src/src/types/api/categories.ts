@@ -43,6 +43,7 @@ export interface ListingFilter {
     stateOfItemIds: string[];
     selectedListingPropertyValueIds: string[];
     sellerId?: string | null;
+    excludeSellerId?: string | null;
     cityId?: string | null;
     radius?: number | null;
     search?: string | null;

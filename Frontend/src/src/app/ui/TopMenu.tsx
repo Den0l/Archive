@@ -1,6 +1,6 @@
 ﻿'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchCategoryHierarchy } from '@/services/categoryService';
 import { CategoryHierarchy } from '@/types/api/categories';
 import CategoryMenuItem from './CategoryMenuItem';
@@ -19,6 +19,8 @@ export default function TopMenu() {
     const [categoriesOpen, setCategoriesOpen] = useState<boolean>(false);
     const [profileOpen, setProfileOpen] = useState<boolean>(false);
     const [openedPath, setOpenedPath] = useState<CategoryPath>([]);
+    const categoriesMenuRef = useRef<HTMLLIElement | null>(null);
+    const profileMenuRef = useRef<HTMLLIElement | null>(null);
     const { user, logout } = useAuth();
     const { totalItems: cartCount } = useCart();
     const { totalItems: favoriteCount } = useFavorites();
@@ -38,6 +40,37 @@ export default function TopMenu() {
 
         fetchCategories();
     }, []);
+
+    useEffect(() => {
+        const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+            const target = event.target as Node;
+
+            if (
+                categoriesOpen &&
+                categoriesMenuRef.current &&
+                !categoriesMenuRef.current.contains(target)
+            ) {
+                setCategoriesOpen(false);
+                setOpenedPath([]);
+            }
+
+            if (
+                profileOpen &&
+                profileMenuRef.current &&
+                !profileMenuRef.current.contains(target)
+            ) {
+                setProfileOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+        };
+    }, [categoriesOpen, profileOpen]);
 
     const closeNav = () => {
         setNavOpen(false);
@@ -104,7 +137,10 @@ export default function TopMenu() {
             <div className={`navbar-collapse burger-menu ${navOpen ? 'open' : ''}`}>
                 <div className="navbar-center">
                     <ul className="navbar-nav">
-                        <li className="nav-item">
+                        <li
+                            className="nav-item"
+                            ref={categoriesMenuRef}
+                        >
                             <button
                                 className="nav-link dropdown-toggle"
                                 type="button"
@@ -137,10 +173,14 @@ export default function TopMenu() {
                             className={`nav-segment ${isCartActive ? 'active' : ''}`}
                             onClick={closeNav}
                         >
-                            {cartCount > 0 && (
-                                <span className="nav-badge">{cartCount}</span>
-                            )}
                             Корзина
+                            <span
+                                className={`nav-badge ${
+                                    cartCount > 0 ? 'nav-badge-filled' : 'nav-badge-empty'
+                                }`}
+                            >
+                                {cartCount}
+                            </span>
                         </Link>
                         <Link
                             href="/cart?tab=favorites"
@@ -148,25 +188,36 @@ export default function TopMenu() {
                             onClick={closeNav}
                         >
                             Избранное
-                            {favoriteCount > 0 && (
-                                <span className="nav-badge">{favoriteCount}</span>
-                            )}
+                            <span
+                                className={`nav-badge ${
+                                    favoriteCount > 0
+                                        ? 'nav-badge-filled'
+                                        : 'nav-badge-empty'
+                                }`}
+                            >
+                                {favoriteCount}
+                            </span>
                         </Link>
                     </div>
 
                     <ul className="navbar-nav ms-auto">
                         {user ? (
                             <>
-                                <li className="nav-item">
+                                <li
+                                    className="nav-item nav-item-create-listing"
+                                >
                                     <Link
                                         href="/listing/new"
-                                        className="nav-link"
+                                        className="nav-link nav-link-create-listing"
                                         onClick={closeNav}
                                     >
-                                        Новое объявление
+                                        Создать объявление
                                     </Link>
                                 </li>
-                                <li className="nav-item">
+                                <li
+                                    className="nav-item nav-item-profile"
+                                    ref={profileMenuRef}
+                                >
                                     <button
                                         className="nav-link dropdown-toggle nav-link-with-dot"
                                         type="button"
@@ -184,6 +235,15 @@ export default function TopMenu() {
                                     <ul
                                         className={`dropdown-menu profile-menu ${profileOpen ? 'show' : ''}`}
                                     >
+                                        <li className="profile-item-create-listing">
+                                            <Link
+                                                href="/listing/new"
+                                                className="dropdown-item"
+                                                onClick={closeNav}
+                                            >
+                                                Создать объявление
+                                            </Link>
+                                        </li>
                                         <li>
                                             <Link
                                                 href="/user"
@@ -206,6 +266,24 @@ export default function TopMenu() {
                                                         aria-label="Есть новые сообщения"
                                                     />
                                                 )}
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link
+                                                href="/user/orders"
+                                                className="dropdown-item"
+                                                onClick={closeNav}
+                                            >
+                                                Мои заказы
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link
+                                                href="/user/settings"
+                                                className="dropdown-item"
+                                                onClick={closeNav}
+                                            >
+                                                Настройки
                                             </Link>
                                         </li>
                                         {user.roles.includes('Admin') && (

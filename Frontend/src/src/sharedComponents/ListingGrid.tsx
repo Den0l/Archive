@@ -1,18 +1,22 @@
 ﻿import React from 'react';
 import { ListingCard } from './ListingCard';
 import { Page } from '@/types/api/page';
-import { Listing } from '@/types/api/listings';
+import { Listing, ListingStats } from '@/types/api/listings';
 
 interface ListingGridProps {
     page: Page<Listing>;
     onPageChange: (pageNumber: number) => void;
     renderActions?: (listing: Listing) => React.ReactNode;
+    statsMap?: Record<string, ListingStats>;
+    onListingUpdated?: () => void | Promise<void>;
 }
 
 export function ListingGrid({
     page,
     onPageChange,
     renderActions,
+    statsMap,
+    onListingUpdated,
 }: ListingGridProps) {
     const hasPagination = page.totalPages > 1;
     const isPrevDisabled = page.pageNumber <= 1 || !hasPagination;
@@ -26,7 +30,9 @@ export function ListingGrid({
                     <ListingCard
                         key={listing.id}
                         listing={listing}
+                        stats={statsMap?.[listing.id]}
                         renderActions={renderActions}
+                        onListingUpdated={onListingUpdated}
                     />
                 ))}
             </div>

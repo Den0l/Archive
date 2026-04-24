@@ -12,6 +12,8 @@ namespace Application.Interfaces.Repositories
         Task<Order?> GetByConversationIdAsync(Guid conversationId);
         Task<List<Order>> GetAllByConversationIdAsync(Guid conversationId);
         Task<Order?> GetLatestPendingByListingIdAsync(Guid listingId);
+        Task<List<Order>> GetByBuyerIdAsync(Guid buyerId);
+        Task<List<Order>> GetBySellerIdAsync(Guid sellerId);
         Task UpdateAsync(Order order);
     }
 }

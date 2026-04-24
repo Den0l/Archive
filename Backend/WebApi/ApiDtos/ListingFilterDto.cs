@@ -11,6 +11,7 @@ namespace WebApi.ApiDtos
         public List<Guid> StateOfItemIds { get; set; }
         public List<Guid> SelectedListingPropertyValueIds { get; set; }
         public Guid? SellerId { get; set; }
+        public Guid? ExcludeSellerId { get; set; }
         public Guid? CityId { get; set; }
         public int? Radius { get; set; }
         public string? Search { get; set; }

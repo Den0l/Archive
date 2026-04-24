@@ -1,85 +1,77 @@
-﻿using Application.Interfaces.Repositories;
+using Application.Interfaces.Repositories;
 using Domain.Entities;
 using Infrastructure.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Infrastructure.Persistence.Repositories {
-	internal class ListingPropertyRepository : IListingPropertyRepository {
-		private readonly MarketplaceDbContext dbContext;
-
-		public ListingPropertyRepository(MarketplaceDbContext dbContext)
+namespace Infrastructure.Persistence.Repositories
+{
+    internal class ListingPropertyRepository
+        : CrudRepositoryBase<ListingProperty>, IListingPropertyRepository
+    {
+        public ListingPropertyRepository(MarketplaceDbContext dbContext)
+            : base(dbContext)
         {
-			this.dbContext = dbContext;
-		}
+        }
 
-        public async Task<ListingProperty> CreateAsync(ListingProperty property) {
-            // we can create with some ListingPropertyValues
-            await dbContext.ListingProperties.AddAsync(property);
-			await dbContext.SaveChangesAsync();
-			return property;
-		}
+        protected override DbSet<ListingProperty> Entities => dbContext.ListingProperties;
 
-		public async Task<ListingProperty?> DeleteAsync(Guid id) {
-			// when we delete property, we also want to delete all associated values
-			var existing = await dbContext.ListingProperties
-				.Include(x => x.ListingPropertyValues)
-				.Include(x => x.Categories)
-				.FirstOrDefaultAsync(x => x.Id == id);
-			if (existing == null) {
-				return null;
-			}
-			dbContext.ListingProperties.Remove(existing);
-			await dbContext.SaveChangesAsync();
-			return existing;
-		}
+        protected override IQueryable<ListingProperty> Query()
+        {
+            return dbContext.ListingProperties
+                .Include(property => property.ListingPropertyValues)
+                .Include(property => property.Categories);
+        }
 
-		public async Task<List<ListingProperty>> GetAllAsync() {
-			return await dbContext.ListingProperties
-				.Include(x => x.ListingPropertyValues)
-				.Include(x => x.Categories)
-				.ToListAsync();
-		}
+        public Task<ListingProperty> CreateAsync(ListingProperty property)
+        {
+            return AddAndSaveAsync(property);
+        }
 
-		public async Task<ListingProperty?> GetByIdAsync(Guid id) {
-			var existing = await dbContext.ListingProperties
-				.Include(x => x.ListingPropertyValues)
-				.Include(x => x.Categories)
-				.FirstOrDefaultAsync(x => x.Id == id);
-			if(existing == null) {
-				return null;
-			}
-			return existing;
-		}
-		public async Task<ListingProperty?> AddListingPropertyValueAsync(Guid id, List<ListingPropertyValue> values) {
-			var existing = await dbContext.ListingProperties
-				.Include(x => x.ListingPropertyValues)
-				.Include(x => x.Categories)
-				.FirstOrDefaultAsync(x => x.Id == id);
-			if (existing == null) {
-				// didnt find existing with this id
-				return null;
-			}
-			existing.ListingPropertyValues.AddRange(values);
-			await dbContext.SaveChangesAsync();
-			return existing;
-		}
-		public async Task<ListingProperty?> UpdateAsync(Guid id, ListingProperty updatedProperty) {
-			var existing = await dbContext.ListingProperties
-				.Include(x => x.ListingPropertyValues)
-				.Include(x => x.Categories)
-				.FirstOrDefaultAsync(x => x.Id == id);
-			if(existing == null) {
-				// didnt find what we want to update
-				return null;
-			}
-			existing.Name = updatedProperty.Name;
-			await dbContext.SaveChangesAsync();
-			return existing;
-		}
-	}
+        public Task<List<ListingProperty>> GetAllAsync()
+        {
+            return GetAllFromQueryAsync();
+        }
+
+        public Task<ListingProperty?> GetByIdAsync(Guid id)
+        {
+            return GetByIdFromQueryAsync(id);
+        }
+
+        public Task<ListingProperty?> DeleteAsync(Guid id)
+        {
+            return DeleteByIdAsync(id);
+        }
+
+        public async Task<ListingProperty?> AddListingPropertyValueAsync(
+            Guid id,
+            List<ListingPropertyValue> values
+        )
+        {
+            var existing = await GetByIdFromQueryAsync(id);
+            if (existing == null)
+            {
+                return null;
+            }
+
+            existing.ListingPropertyValues.AddRange(values);
+            await dbContext.SaveChangesAsync();
+            return existing;
+        }
+
+        public async Task<ListingProperty?> UpdateAsync(
+            Guid id,
+            ListingProperty updatedProperty
+        )
+        {
+            var existing = await GetByIdFromQueryAsync(id);
+            if (existing == null)
+            {
+                return null;
+            }
+
+            existing.Name = updatedProperty.Name;
+            await dbContext.SaveChangesAsync();
+            return existing;
+        }
+    }
 }

@@ -1,4 +1,4 @@
-import api from './apiClient';
+import { getData, postData } from './httpClient';
 import {
     Conversation,
     CreateConversationRequest,
@@ -8,32 +8,47 @@ import { Message } from '@/types/api/messages';
 export const createConversation = async (
     payload: CreateConversationRequest
 ): Promise<Conversation> => {
-    const { data } = await api.post<Conversation>(
+    return postData<Conversation, CreateConversationRequest>(
         '/api/Conversations',
         payload
     );
-    return data;
 };
 
 export const fetchAllConversations = async (): Promise<Conversation[]> => {
-    const { data } = await api.get<Conversation[]>('/api/Conversations');
-    return data;
+    return getData<Conversation[]>('/api/Conversations');
 };
 
 export const fetchConversationById = async (
     conversationId: string
 ): Promise<Conversation> => {
-    const { data } = await api.get<Conversation>(
+    return getData<Conversation>(
         `/api/Conversations/${conversationId}`
     );
-    return data;
 };
 
 export const fetchMessagesByConversationId = async (
     conversationId: string
 ): Promise<Message[]> => {
-    const { data } = await api.get<Message[]>(
+    return getData<Message[]>(
         `/api/Conversations/${conversationId}/messages`
     );
-    return data;
+};
+
+export interface EnsureSystemConversationResponse {
+    conversationId: string | null;
+    systemUserId: string;
+}
+
+export const ensureSystemConversation =
+    async (): Promise<EnsureSystemConversationResponse> => {
+        return postData<EnsureSystemConversationResponse>(
+            '/api/Conversations/ensure-system'
+        );
+    };
+
+export const fetchSystemUserId = async (): Promise<string> => {
+    const data = await getData<{ systemUserId: string }>(
+        '/api/Conversations/system-user-id'
+    );
+    return data.systemUserId;
 };
