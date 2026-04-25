@@ -50,10 +50,7 @@ namespace WebApi.Controllers {
 		[Route("{id:Guid}")]
 		public async Task<IActionResult> GetById(Guid id) {
 			var domain = await repository.GetByIdAsync(id);
-			return this.OkMappedOrNotFound<ListingProperty, ListingPropertyDetailDto>(
-                mapper,
-                domain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyDetailDto>(mapper, domain);
 		}
 		/// <summary>
 		/// Creates a new listing property. 
@@ -84,10 +81,7 @@ namespace WebApi.Controllers {
         public async Task<IActionResult> Put(Guid id, UpdateListingPropertyRequest request) {
 			var domain = mapper.Map<ListingProperty>(request);
 			domain = await repository.UpdateAsync(id, domain);
-			return this.OkMappedOrNotFound<ListingProperty, ListingPropertyDto>(
-                mapper,
-                domain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyDto>(mapper, domain);
 		}
 		/// <summary>
 		/// Deletes the given property and cascade deletes also all the propertyValues associated to it. 
@@ -99,10 +93,7 @@ namespace WebApi.Controllers {
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id) {
 			var domain = await repository.DeleteAsync(id);
-			return this.OkMappedOrNotFound<ListingProperty, ListingPropertyDto>(
-                mapper,
-                domain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyDto>(mapper, domain);
 		}
 		/// <summary>
 		/// Adds list of values to the property. 
@@ -120,10 +111,7 @@ namespace WebApi.Controllers {
         public async Task<IActionResult> AddPropertyValues(Guid id, List<CreatePropertyValueInsidePropertyRequest> propertyValues) {
 			var listAttrDomain = mapper.Map<List<ListingPropertyValue>>(propertyValues);
 			var propertyDomain = await repository.AddListingPropertyValueAsync(id, listAttrDomain);
-			return this.OkMappedOrNotFound<ListingProperty, ListingPropertyDetailDto>(
-                mapper,
-                propertyDomain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyDetailDto>(mapper, propertyDomain);
 		}
 	}
 }

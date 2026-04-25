@@ -1,14 +1,11 @@
-﻿using Application.Interfaces.Repositories;
+using Application.Interfaces.Repositories;
 using AutoMapper;
 using Domain.Entities;
 using Infrastructure.Identity;
-using Infrastructure.Persistence.Repositories;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using WebApi.ApiDtos;
 using WebApi.ApiDtos.Listings;
 using WebApi.ApiDtos.Reviews;
@@ -18,7 +15,7 @@ namespace WebApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class ReviewsController : ControllerBase
+    public class ReviewsController : AuthorizedControllerBase
     {
         private readonly IReviewRepository reviewRepository;
         private readonly IMapper mapper;
@@ -41,8 +38,7 @@ namespace WebApi.Controllers
         [Authorize]
         public async Task<IActionResult> Create([FromBody] CreateReviewRequest request)
         {
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
             var systemUser = await systemUserProvider.GetSystemUserAsync();
@@ -84,15 +80,13 @@ namespace WebApi.Controllers
                 return dto;
             }).ToList();
 
-            var result = new PageDto<ReviewDto>
+            return Ok(new PageDto<ReviewDto>
             {
                 Items = dtos,
                 TotalPages = page.TotalPages,
                 PageNumber = pageNumber,
                 PageSize = pageSize
-            };
-
-            return Ok(result);
+            });
         }
 
         [HttpDelete("{id:Guid}")]

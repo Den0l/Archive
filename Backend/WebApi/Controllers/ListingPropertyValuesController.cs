@@ -44,10 +44,7 @@ namespace WebApi.Controllers {
 		[Route("{id:Guid}")]
 		public async Task<IActionResult> GetById(Guid id) {
 			var domain = await repository.GetByIdAsync(id);
-			return this.OkMappedOrNotFound<ListingPropertyValue, ListingPropertyValueDto>(
-                mapper,
-                domain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyValueDto>(mapper, domain);
 		}
 		/// <summary>
 		/// Adds a new value to the specified listing property within CreateListingPropertyRequest.
@@ -73,10 +70,7 @@ namespace WebApi.Controllers {
         public async Task<IActionResult> Put(Guid id, UpdateListingPropertyValueRequest request) {
 			var domain = mapper.Map<ListingPropertyValue>(request);
 			domain = await repository.UpdateAsync(id, domain);
-			return this.OkMappedOrNotFound<ListingPropertyValue, ListingPropertyValueDto>(
-                mapper,
-                domain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyValueDto>(mapper, domain);
 		}
         /// <summary>
         /// Deletes specified value.
@@ -88,10 +82,7 @@ namespace WebApi.Controllers {
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id) {
 			var domain = await repository.DeleteAsync(id);
-			return this.OkMappedOrNotFound<ListingPropertyValue, ListingPropertyValueDto>(
-                mapper,
-                domain
-            );
+			return this.OkMappedOrNotFound<ListingPropertyValueDto>(mapper, domain);
 		}
 	}
 }
