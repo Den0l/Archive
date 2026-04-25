@@ -71,15 +71,7 @@ namespace WebApi.Controllers
         {
             var filterDomain = mapper.Map<ListingFilter>(filter);
             var pagedDomain = await repository.GetAllAsync(filterDomain, pageNumber, pageSize);
-            var dtoItems = mapper.Map<List<ListingDto>>(pagedDomain.Items);
-            var result = new PageDto<ListingDto>
-            {
-                Items = dtoItems,
-                TotalPages = pagedDomain.TotalPages,
-                PageNumber = pageNumber,
-                PageSize = pageSize
-            };
-            return Ok(result);
+            return Ok(pagedDomain.ToDto<Listing, ListingDto>(mapper));
         }
 
         /// <summary>

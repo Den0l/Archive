@@ -97,15 +97,7 @@ namespace WebApi.Controllers
             categoryName = WebUtility.UrlDecode(categoryName);
             var domainFilter = mapper.Map<ListingFilter>(filter);
             var pagedDomain = await repository.GetListingsByCategoryNameAsync(categoryName, domainFilter, pageNumber, pageSize);
-            var dtoItems = mapper.Map<List<ListingDto>>(pagedDomain.Items);
-            var result = new PageDto<ListingDto>
-            {
-                Items = dtoItems,
-                TotalPages = pagedDomain.TotalPages,
-                PageNumber = pageNumber,
-                PageSize = pageSize
-            };
-            return Ok(result);
+            return Ok(pagedDomain.ToDto<Listing, ListingDto>(mapper));
 
         }
         [HttpGet]
