@@ -3,6 +3,7 @@ import {
     getData,
     patchData,
     postData,
+    postFormData,
     putData,
 } from './httpClient';
 import {
@@ -105,12 +106,9 @@ export const aiAutofillListing = async (
         formData.append('newImages', file);
     });
 
-    return postData<AiAutofillListingResponse, FormData>(
+    return postFormData<AiAutofillListingResponse>(
         '/api/Listings/AiAutofill',
-        formData,
-        {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        }
+        formData
     );
 };
 

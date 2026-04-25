@@ -52,6 +52,21 @@ export const postVoid = async <TBody = unknown>(
     await api.post(url, body, config);
 };
 
+export const postFormData = async <T>(
+    url: string,
+    formData: FormData,
+    config?: AxiosRequestConfig
+): Promise<T> => {
+    const { data } = await api.post<T>(url, formData, {
+        ...config,
+        headers: {
+            ...config?.headers,
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return data;
+};
+
 export const deleteVoid = async (
     url: string,
     config?: AxiosRequestConfig
