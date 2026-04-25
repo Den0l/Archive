@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     addAdminRole,
     deleteUser,
@@ -12,36 +12,32 @@ import { UserDetail } from '@/types/api/users';
 import { useNotification } from '@/context/NotificationContext';
 import { useConfirmDialog } from '@/context/ConfirmDialogContext';
 import { getApiErrorMessage } from '@/utils/validation';
+import { useAsyncData } from '@/sharedComponents/hooks/useAsyncData';
 import AdminActionsMenu from './AdminActionsMenu';
 
 export default function UserManagementSection(): JSX.Element {
-    const [users, setUsers] = useState<UserDetail[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
+    const { addNotification } = useNotification();
+    const { confirm } = useConfirmDialog();
     const [roleUpdatingUserId, setRoleUpdatingUserId] = useState<string | null>(
         null
     );
-    const { addNotification } = useNotification();
-    const { confirm } = useConfirmDialog();
 
-    const loadUsers = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await fetchAllUserDetails();
-            setUsers(data);
-        } catch (err: any) {
-            const message = getApiErrorMessage(
-                err,
-                'Не удалось загрузить пользователей.'
-            );
-            addNotification(message, { level: 'error', importance: 'high' });
-        } finally {
-            setLoading(false);
-        }
-    }, [addNotification]);
+    const notifyError = useCallback(
+        (error: unknown, fallback: string) =>
+            addNotification(getApiErrorMessage(error, fallback), {
+                level: 'error',
+                importance: 'high',
+            }),
+        [addNotification]
+    );
 
-    useEffect(() => {
-        void loadUsers();
-    }, [loadUsers]);
+    const {
+        data: users,
+        setData: setUsers,
+        loading,
+    } = useAsyncData<UserDetail[]>(fetchAllUserDetails, [], {
+        onError: (error) => notifyError(error, 'Не удалось загрузить пользователей.'),
+    });
 
     const handleDelete = async (userId: string) => {
         const shouldDelete = await confirm({
@@ -59,17 +55,9 @@ export default function UserManagementSection(): JSX.Element {
         try {
             await deleteUser(userId);
             setUsers((prev) => prev.filter((user) => user.id !== userId));
-            addNotification('Пользователь успешно удалён.', {
-                level: 'success',
-            });
-        } catch (err: any) {
-            addNotification(
-                getApiErrorMessage(err, 'Не удалось удалить пользователя.'),
-                {
-                    level: 'error',
-                    importance: 'high',
-                }
-            );
+            addNotification('Пользователь успешно удалён.', { level: 'success' });
+        } catch (error) {
+            notifyError(error, 'Не удалось удалить пользователя.');
         }
     };
 
@@ -107,18 +95,12 @@ export default function UserManagementSection(): JSX.Element {
                     : 'Роль администратора удалена.',
                 { level: 'success' }
             );
-        } catch (err: any) {
-            addNotification(
-                getApiErrorMessage(
-                    err,
-                    shouldBeAdmin
-                        ? 'Не удалось добавить роль администратора.'
-                        : 'Не удалось удалить роль администратора.'
-                ),
-                {
-                    level: 'error',
-                    importance: 'high',
-                }
+        } catch (error) {
+            notifyError(
+                error,
+                shouldBeAdmin
+                    ? 'Не удалось добавить роль администратора.'
+                    : 'Не удалось удалить роль администратора.'
             );
         } finally {
             setRoleUpdatingUserId(null);

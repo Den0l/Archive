@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import { fetchAllListings, deleteListing } from '@/services/listingService';
 import { Listing } from '@/types/api/listings';
 import {
@@ -11,6 +11,7 @@ import {
 import { useNotification } from '@/context/NotificationContext';
 import { useConfirmDialog } from '@/context/ConfirmDialogContext';
 import { getApiErrorMessage } from '@/utils/validation';
+import { useAsyncData } from '@/sharedComponents/hooks/useAsyncData';
 import AdminActionsMenu from './AdminActionsMenu';
 
 const defaultFilter: ListingFilter = {
@@ -27,29 +28,27 @@ const defaultFilter: ListingFilter = {
 };
 
 export default function ListingManagementSection() {
-    const [listings, setListings] = useState<Listing[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
     const { addNotification } = useNotification();
     const { confirm } = useConfirmDialog();
 
-    const loadListings = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await fetchAllListings(defaultFilter, 100);
-            setListings(data);
-        } catch (err: any) {
-            addNotification(
-                getApiErrorMessage(err, 'Не удалось загрузить объявления.'),
-                { level: 'error', importance: 'high' }
-            );
-        } finally {
-            setLoading(false);
-        }
-    }, [addNotification]);
+    const notifyError = useCallback(
+        (error: unknown, fallback: string) =>
+            addNotification(getApiErrorMessage(error, fallback), {
+                level: 'error',
+                importance: 'high',
+            }),
+        [addNotification]
+    );
 
-    useEffect(() => {
-        void loadListings();
-    }, [loadListings]);
+    const {
+        data: listings,
+        setData: setListings,
+        loading,
+    } = useAsyncData<Listing[]>(
+        () => fetchAllListings(defaultFilter, 100),
+        [],
+        { onError: (error) => notifyError(error, 'Не удалось загрузить объявления.') }
+    );
 
     const handleDelete = async (id: string) => {
         const shouldDelete = await confirm({
@@ -66,11 +65,8 @@ export default function ListingManagementSection() {
         try {
             await deleteListing(id);
             setListings((prev) => prev.filter((item) => item.id !== id));
-        } catch (err: any) {
-            addNotification(
-                getApiErrorMessage(err, 'Не удалось удалить объявление.'),
-                { level: 'error', importance: 'high' }
-            );
+        } catch (error) {
+            notifyError(error, 'Не удалось удалить объявление.');
         }
     };
 
