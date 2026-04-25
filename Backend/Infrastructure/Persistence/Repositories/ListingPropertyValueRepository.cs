@@ -16,43 +16,18 @@ namespace Infrastructure.Persistence.Repositories
         protected override DbSet<ListingPropertyValue> Entities =>
             dbContext.ListingPropertyValues;
 
-        protected override IQueryable<ListingPropertyValue> Query()
-        {
-            return dbContext.ListingPropertyValues
+        protected override IQueryable<ListingPropertyValue> Query() =>
+            dbContext.ListingPropertyValues
                 .Include(value => value.ListingProperty)
                 .Include(value => value.Listings);
-        }
-
-        public Task<ListingPropertyValue> CreateAsync(ListingPropertyValue value)
-        {
-            return AddAndSaveAsync(value);
-        }
-
-        public Task<List<ListingPropertyValue>> GetAllAsync()
-        {
-            return GetAllFromQueryAsync();
-        }
-
-        public Task<ListingPropertyValue?> GetByIdAsync(Guid id)
-        {
-            return GetByIdFromQueryAsync(id);
-        }
-
-        public Task<ListingPropertyValue?> DeleteAsync(Guid id)
-        {
-            return DeleteByIdAsync(id);
-        }
 
         public async Task<ListingPropertyValue?> UpdateAsync(
             Guid id,
-            ListingPropertyValue updatedPropertyValue
-        )
+            ListingPropertyValue updatedPropertyValue)
         {
-            var existing = await GetByIdFromQueryAsync(id);
+            var existing = await GetByIdAsync(id);
             if (existing == null)
-            {
                 return null;
-            }
 
             existing.Name = updatedPropertyValue.Name;
             await dbContext.SaveChangesAsync();

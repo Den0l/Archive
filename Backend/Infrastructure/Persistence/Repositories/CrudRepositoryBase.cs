@@ -3,7 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    internal abstract class CrudRepositoryBase<TEntity>
+    /// <summary>
+    /// Base for repositories of entities with a Guid <c>Id</c>.
+    /// Subclasses provide the <see cref="Entities"/> DbSet and an optional <see cref="Query"/>
+    /// override to attach Includes used by the standard CRUD methods.
+    /// </summary>
+    public abstract class CrudRepositoryBase<TEntity>
         where TEntity : class
     {
         private const string EntityIdPropertyName = "Id";
@@ -17,34 +22,26 @@ namespace Infrastructure.Persistence.Repositories
 
         protected abstract DbSet<TEntity> Entities { get; }
 
-        protected abstract IQueryable<TEntity> Query();
+        protected virtual IQueryable<TEntity> Query() => Entities;
 
-        protected async Task<TEntity> AddAndSaveAsync(TEntity entity)
+        public virtual async Task<TEntity> CreateAsync(TEntity entity)
         {
             await Entities.AddAsync(entity);
             await dbContext.SaveChangesAsync();
             return entity;
         }
 
-        protected Task<List<TEntity>> GetAllFromQueryAsync()
-        {
-            return Query().ToListAsync();
-        }
+        public virtual Task<List<TEntity>> GetAllAsync() => Query().ToListAsync();
 
-        protected Task<TEntity?> GetByIdFromQueryAsync(Guid id)
-        {
-            return Query().FirstOrDefaultAsync(
-                entity => EF.Property<Guid>(entity, EntityIdPropertyName) == id
-            );
-        }
+        public virtual Task<TEntity?> GetByIdAsync(Guid id) =>
+            Query().FirstOrDefaultAsync(
+                entity => EF.Property<Guid>(entity, EntityIdPropertyName) == id);
 
-        protected async Task<TEntity?> DeleteByIdAsync(Guid id)
+        public virtual async Task<TEntity?> DeleteAsync(Guid id)
         {
-            var existing = await GetByIdFromQueryAsync(id);
+            var existing = await GetByIdAsync(id);
             if (existing == null)
-            {
                 return null;
-            }
 
             Entities.Remove(existing);
             await dbContext.SaveChangesAsync();
