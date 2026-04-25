@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
 import { type ThemeMode, useTheme } from '@/context/ThemeContext';
@@ -25,6 +24,7 @@ import {
     UserSettings,
 } from '@/types/api/users';
 import { getApiErrorMessage } from '@/utils/validation';
+import { useAsyncCallback } from '@/sharedComponents/hooks/useAsyncCallback';
 import styles from './SettingsPage.module.css';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,14 +84,31 @@ const validatePassword = (value: string, label: string) => {
 };
 
 function UserSettingsContent() {
-    const router = useRouter();
     const { user, loading, logout } = useAuth();
     const { addNotification } = useNotification();
     const { theme, setTheme } = useTheme();
 
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [subscriptions, setSubscriptions] = useState<SellerSubscription[]>([]);
-    const [pageLoading, setPageLoading] = useState(true);
+
+    const settingsLoader = useAsyncCallback(
+        async () => {
+            const [settingsResponse, subscriptionsResponse] = await Promise.all([
+                fetchUserSettings(),
+                fetchSubscriptions(),
+            ]);
+            return { settingsResponse, subscriptionsResponse };
+        },
+        {
+            initialLoading: true,
+            onError: (error) =>
+                addNotification(
+                    getApiErrorMessage(error, 'Не удалось загрузить настройки профиля.'),
+                    { level: 'error', importance: 'high' }
+                ),
+        }
+    );
+    const pageLoading = settingsLoader.loading;
 
     const [notificationForm, setNotificationForm] =
         useState<NotificationPreferences>(DEFAULT_NOTIFICATIONS);
@@ -120,31 +137,17 @@ function UserSettingsContent() {
 
     const [removingSellerId, setRemovingSellerId] = useState<string | null>(null);
 
+    const settingsInvoke = settingsLoader.invoke;
     useEffect(() => {
         if (loading || !user) return;
-
-        const loadData = async () => {
-            setPageLoading(true);
-            try {
-                const [settingsResponse, subscriptionsResponse] = await Promise.all([
-                    fetchUserSettings(),
-                    fetchSubscriptions(),
-                ]);
-                setSettings(settingsResponse);
-                setNotificationForm(settingsResponse.notifications);
-                setSubscriptions(subscriptionsResponse);
-            } catch (error) {
-                addNotification(
-                    getApiErrorMessage(error, 'Не удалось загрузить настройки профиля.'),
-                    { level: 'error', importance: 'high' }
-                );
-            } finally {
-                setPageLoading(false);
-            }
-        };
-
-        void loadData();
-    }, [addNotification, loading, router, user]);
+        void (async () => {
+            const result = await settingsInvoke();
+            if (!result) return;
+            setSettings(result.settingsResponse);
+            setNotificationForm(result.settingsResponse.notifications);
+            setSubscriptions(result.subscriptionsResponse);
+        })();
+    }, [loading, settingsInvoke, user]);
 
     const applySettings = useCallback((next: UserSettings) => {
         setSettings(next);

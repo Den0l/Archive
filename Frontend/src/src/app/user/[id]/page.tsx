@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useAsyncCallback } from '@/sharedComponents/hooks/useAsyncCallback';
 import { useRouter } from 'next/navigation';
 import { fetchUserById } from '@/services/userService';
 import { createReview, fetchReviewsByReviewee } from '@/services/reviewService';
@@ -148,9 +149,6 @@ export default function UserPage({ params }: { params: { id: string } }) {
     const [listingsPageNumber, setListingsPageNumber] = useState(1);
     const [salesPageNumber, setSalesPageNumber] = useState(1);
     const [archivedPageNumber, setArchivedPageNumber] = useState(1);
-    const [loadingUser, setLoadingUser] = useState(true);
-    const [loadingReviews, setLoadingReviews] = useState(true);
-    const [loadingListings, setLoadingListings] = useState(true);
     const [reviewsPageSize, setReviewsPageSize] = useState(
         getInitialReviewsPageSize
     );
@@ -169,74 +167,79 @@ export default function UserPage({ params }: { params: { id: string } }) {
         [addNotification]
     );
 
+    const userLoader = useAsyncCallback(() => fetchUserById(id), {
+        initialLoading: true,
+        onError: (error) =>
+            reportError(getApiErrorMessage(error, TEXT.userLoadError)),
+    });
+    const loadingUser = userLoader.loading;
+    const userInvoke = userLoader.invoke;
     const loadUser = useCallback(async () => {
-        setLoadingUser(true);
-        try {
-            const loadedUser = await fetchUserById(id);
-            setUser(loadedUser);
-        } catch (err: any) {
-            reportError(getApiErrorMessage(err, TEXT.userLoadError));
-        } finally {
-            setLoadingUser(false);
-        }
-    }, [id, reportError]);
+        const result = await userInvoke();
+        if (result) setUser(result);
+    }, [userInvoke]);
 
+    const reviewsLoader = useAsyncCallback(
+        (pageNumber: number) =>
+            fetchReviewsByReviewee(id, pageNumber, reviewsPageSize),
+        {
+            initialLoading: true,
+            onError: (error) =>
+                reportError(getApiErrorMessage(error, TEXT.reviewsLoadError)),
+        }
+    );
+    const loadingReviews = reviewsLoader.loading;
+    const reviewsInvoke = reviewsLoader.invoke;
     const loadReviews = useCallback(
         async (pageNumber: number = 1) => {
-            setLoadingReviews(true);
-            try {
-                const data = await fetchReviewsByReviewee(
-                    id,
-                    pageNumber,
-                    reviewsPageSize
-                );
-                setReviewsPage(data);
-            } catch (err: any) {
-                reportError(getApiErrorMessage(err, TEXT.reviewsLoadError));
-            } finally {
-                setLoadingReviews(false);
-            }
+            const result = await reviewsInvoke(pageNumber);
+            if (result) setReviewsPage(result);
         },
-        [id, reportError, reviewsPageSize]
+        [reviewsInvoke]
     );
 
-    const loadListings = useCallback(
+    const listingsLoader = useAsyncCallback(
         async () => {
-            setLoadingListings(true);
-            try {
-                const filter: ListingFilter = {
-                    priceMin: null,
-                    priceMax: null,
-                    stateOfItemIds: [],
-                    selectedListingPropertyValueIds: [],
-                    sellerId: id,
-                    cityId: null,
-                    radius: null,
-                    search: null,
-                    ordering: Ordering.CreatedAt,
-                    orderingDirection: OrderingDirection.Descending,
-                    includeSold: true,
-                    includeArchived: true,
-                };
-                const data = await fetchAllListings(filter, 100);
-                setAllListings(data);
-                if (isOwner && data.length > 0) {
-                    try {
-                        const ids = data.map((l) => l.id);
-                        const stats = await fetchListingStatsBatch(ids);
-                        setStatsMap(stats);
-                    } catch {
-                        // stats are optional
-                    }
+            const filter: ListingFilter = {
+                priceMin: null,
+                priceMax: null,
+                stateOfItemIds: [],
+                selectedListingPropertyValueIds: [],
+                sellerId: id,
+                cityId: null,
+                radius: null,
+                search: null,
+                ordering: Ordering.CreatedAt,
+                orderingDirection: OrderingDirection.Descending,
+                includeSold: true,
+                includeArchived: true,
+            };
+            const data = await fetchAllListings(filter, 100);
+            let stats: Record<string, ListingStats> | null = null;
+            if (isOwner && data.length > 0) {
+                try {
+                    const ids = data.map((l) => l.id);
+                    stats = await fetchListingStatsBatch(ids);
+                } catch {
+                    // stats are optional
                 }
-            } catch (err: any) {
-                reportError(getApiErrorMessage(err, TEXT.listingsLoadError));
-            } finally {
-                setLoadingListings(false);
             }
+            return { data, stats };
         },
-        [id, isOwner, reportError]
+        {
+            initialLoading: true,
+            onError: (error) =>
+                reportError(getApiErrorMessage(error, TEXT.listingsLoadError)),
+        }
     );
+    const loadingListings = listingsLoader.loading;
+    const listingsInvoke = listingsLoader.invoke;
+    const loadListings = useCallback(async () => {
+        const result = await listingsInvoke();
+        if (!result) return;
+        setAllListings(result.data);
+        if (result.stats) setStatsMap(result.stats);
+    }, [listingsInvoke]);
 
     const activeListings = allListings.filter(
         (listing) => !listing.isSold && !listing.isArchived

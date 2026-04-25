@@ -17,6 +17,7 @@ import {
 import { createConversation } from '@/services/conversationService';
 import { Order, OrderStatus } from '@/types/api/orders';
 import { getApiErrorMessage } from '@/utils/validation';
+import { useAsyncCallback } from '@/sharedComponents/hooks/useAsyncCallback';
 
 const TEXT = {
     loading: 'Загрузка',
@@ -265,46 +266,37 @@ function OrdersContent() {
     const [activeTab, setActiveTab] = useState<OrdersTabKey>('buyer');
     const [buyerOrders, setBuyerOrders] = useState<Order[]>([]);
     const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
-    const [buyerLoading, setBuyerLoading] = useState(true);
-    const [sellerLoading, setSellerLoading] = useState(true);
     const [actionOrderId, setActionOrderId] = useState<string | null>(null);
     const [chatLoadingRecipientId, setChatLoadingRecipientId] = useState<
         string | null
     >(null);
 
-    const loadBuyerOrders = useCallback(async () => {
-        setBuyerLoading(true);
-        try {
-            const orders = await fetchMyOrdersAsBuyer();
-            setBuyerOrders(orders);
-        } catch (error) {
+    const buyerLoader = useAsyncCallback(fetchMyOrdersAsBuyer, {
+        initialLoading: true,
+        onError: (error) =>
             addNotification(
                 getApiErrorMessage(error, TEXT.buyerLoadError),
                 'danger'
-            );
-        } finally {
-            setBuyerLoading(false);
-        }
-    }, [addNotification]);
-
-    const loadSellerOrders = useCallback(async () => {
-        setSellerLoading(true);
-        try {
-            const orders = await fetchMyOrdersAsSeller();
-            setSellerOrders(orders);
-        } catch (error) {
+            ),
+    });
+    const sellerLoader = useAsyncCallback(fetchMyOrdersAsSeller, {
+        initialLoading: true,
+        onError: (error) =>
             addNotification(
                 getApiErrorMessage(error, TEXT.sellerLoadError),
                 'danger'
-            );
-        } finally {
-            setSellerLoading(false);
-        }
-    }, [addNotification]);
+            ),
+    });
+    const buyerLoading = buyerLoader.loading;
+    const sellerLoading = sellerLoader.loading;
 
+    const buyerInvoke = buyerLoader.invoke;
+    const sellerInvoke = sellerLoader.invoke;
     const reloadOrders = useCallback(async () => {
-        await Promise.all([loadBuyerOrders(), loadSellerOrders()]);
-    }, [loadBuyerOrders, loadSellerOrders]);
+        const [buyer, seller] = await Promise.all([buyerInvoke(), sellerInvoke()]);
+        if (buyer) setBuyerOrders(buyer);
+        if (seller) setSellerOrders(seller);
+    }, [buyerInvoke, sellerInvoke]);
 
     useEffect(() => {
         setActiveTab(resolveOrdersTabKey(searchParams.get('tab')));

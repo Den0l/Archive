@@ -13,6 +13,7 @@ import { CategoryDetail } from '@/types/api/categories';
 import { ListingProperty } from '@/types/api/listingProperties';
 import { fetchListingProperties } from '@/services/listingPropertyService';
 import RequireAdmin from '@/sharedComponents/RequireAdmin';
+import { useAsyncData } from '@/sharedComponents/hooks/useAsyncData';
 import { useConfirmDialog } from '@/context/ConfirmDialogContext';
 import { normalizeSingleLine, validateEntityName } from '@/utils/validation';
 
@@ -23,7 +24,14 @@ type CategoryNameSaveState = 'idle' | 'saving' | 'saved' | 'error';
 export default function CategoryPage({ params }: { params: { id: string } }) {
     const { id } = params;
     const [category, setCategory] = useState<CategoryDetail | null>(null);
-    const [allProperties, setAllProperties] = useState<ListingProperty[]>([]);
+    const { data: allProperties } = useAsyncData<ListingProperty[]>(
+        fetchListingProperties,
+        [],
+        {
+            onError: (error) =>
+                console.error('Failed to fetch listing properties', error),
+        }
+    );
     const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
     const [categoryNameDraft, setCategoryNameDraft] = useState('');
     const [categoryNameError, setCategoryNameError] = useState('');
@@ -42,26 +50,10 @@ export default function CategoryPage({ params }: { params: { id: string } }) {
     }, [id]);
 
     useEffect(() => {
-        if (!id) {
-            return;
-        }
-
-        const fetchData = async () => {
-            try {
-                await fetchCategory();
-            } catch (error) {
-                console.error('Failed to fetch category data', error);
-            }
-
-            try {
-                const properties = await fetchListingProperties();
-                setAllProperties(properties);
-            } catch (error) {
-                console.error('Failed to fetch listing properties', error);
-            }
-        };
-
-        fetchData();
+        if (!id) return;
+        fetchCategory().catch((error) =>
+            console.error('Failed to fetch category data', error)
+        );
     }, [id, fetchCategory]);
 
     const persistCategoryName = useCallback(
