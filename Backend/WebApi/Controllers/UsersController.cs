@@ -4,9 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Concurrent;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using WebApi.ApiDtos.Users;
 using WebApi.Services;
 
@@ -16,40 +14,35 @@ namespace WebApi.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private const int EmailCodeLifetimeMinutes = 15;
-        private static readonly ConcurrentDictionary<Guid, EmailCodeEntry> EmailCodes =
-            new();
-
         private readonly UserManager<ApplicationUser> userManager;
         private readonly IMapper mapper;
         private readonly INotificationEmailService notificationEmailService;
+        private readonly IEmailVerificationService emailVerificationService;
         private readonly ILogger<UsersController> logger;
 
         public UsersController(
             UserManager<ApplicationUser> userManager,
             IMapper mapper,
             INotificationEmailService notificationEmailService,
+            IEmailVerificationService emailVerificationService,
             ILogger<UsersController> logger)
         {
             this.userManager = userManager;
             this.mapper = mapper;
             this.notificationEmailService = notificationEmailService;
+            this.emailVerificationService = emailVerificationService;
             this.logger = logger;
         }
 
-        private sealed record EmailCodeEntry(
-            string Code,
-            string Email,
-            string Purpose,
-            DateTime ExpiresAt);
-
         [HttpGet("{id:guid}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid id)
         {
             var user = await userManager.FindByIdAsync(id.ToString());
             if (user == null)
                 return NotFound();
-            return Ok(mapper.Map<UserDto>(user));
+
+            return Ok(CreatePublicUserDto(user));
         }
 
         [HttpGet("{id:guid}/detail")]
@@ -183,12 +176,10 @@ namespace WebApi.Controllers
                 return BadRequest("Текущая почта уже подтверждена.");
             }
 
-            var code = GenerateEmailCode();
-            EmailCodes[user.Id] = new EmailCodeEntry(
-                code,
+            var code = emailVerificationService.IssueCode(
+                user.Id,
                 user.Email,
-                "verify-current",
-                DateTime.Now.AddMinutes(EmailCodeLifetimeMinutes));
+                "verify-current");
 
             try
             {
@@ -231,7 +222,7 @@ namespace WebApi.Controllers
                 return Ok(CreateUserSettingsDto(user));
             }
 
-            var isCodeValid = TryConsumeCode(
+            var isCodeValid = emailVerificationService.TryConsumeCode(
                 user.Id,
                 user.Email,
                 "verify-current",
@@ -277,8 +268,6 @@ namespace WebApi.Controllers
                 return BadRequest("Почта уже используется.");
             }
 
-            var code = GenerateEmailCode();
-
             user.PendingEmail = newEmail;
             user.PendingEmailRequestedAt = DateTime.Now;
 
@@ -288,13 +277,13 @@ namespace WebApi.Controllers
                 return BadRequest("Не удалось подготовить смену e-mail.");
             }
 
+            var code = emailVerificationService.IssueCode(
+                user.Id,
+                newEmail,
+                "change-email");
+
             try
             {
-                EmailCodes[user.Id] = new EmailCodeEntry(
-                    code,
-                    newEmail,
-                    "change-email",
-                    DateTime.Now.AddMinutes(EmailCodeLifetimeMinutes));
                 await notificationEmailService.SendEmailChangeCodeAsync(
                     newEmail,
                     user.Nickname,
@@ -308,7 +297,7 @@ namespace WebApi.Controllers
                     "Failed to send email change code to user {UserId}.",
                     user.Id);
 
-                EmailCodes.TryRemove(user.Id, out _);
+                emailVerificationService.RevokeCode(user.Id);
                 user.PendingEmail = null;
                 user.PendingEmailRequestedAt = null;
                 await userManager.UpdateAsync(user);
@@ -336,7 +325,7 @@ namespace WebApi.Controllers
                 return BadRequest("Запрос на смену e-mail не найден.");
             }
 
-            var isCodeValid = TryConsumeCode(
+            var isCodeValid = emailVerificationService.TryConsumeCode(
                 user.Id,
                 pendingEmail,
                 "change-email",
@@ -439,45 +428,33 @@ namespace WebApi.Controllers
             };
         }
 
-        private static string GenerateEmailCode()
+        private UserDto CreatePublicUserDto(ApplicationUser user)
         {
-            return RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+            var dto = mapper.Map<UserDto>(user);
+            dto.Email = string.Empty;
+
+            if (CanViewUserEmail(user.Id))
+            {
+                dto.Email = user.Email ?? string.Empty;
+            }
+
+            return dto;
         }
 
-        private static bool TryConsumeCode(
-            Guid userId,
-            string expectedEmail,
-            string expectedPurpose,
-            string code)
+        private bool CanViewUserEmail(Guid userId)
         {
-            if (!EmailCodes.TryGetValue(userId, out var entry))
+            if (User.Identity?.IsAuthenticated != true)
             {
                 return false;
             }
 
-            if (entry.ExpiresAt < DateTime.Now)
-            {
-                EmailCodes.TryRemove(userId, out _);
-                return false;
-            }
-
-            if (!string.Equals(entry.Email, expectedEmail, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (!string.Equals(entry.Purpose, expectedPurpose, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (!string.Equals(entry.Code, code, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            EmailCodes.TryRemove(userId, out _);
-            return true;
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return string.Equals(
+                    currentUserId,
+                    userId.ToString(),
+                    StringComparison.OrdinalIgnoreCase)
+                || User.IsInRole("Admin");
         }
+
     }
 }

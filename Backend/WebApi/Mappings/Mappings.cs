@@ -41,7 +41,9 @@ namespace WebApi.Mappings
 			CreateMap<Message, MessageDto>().ReverseMap();
 			CreateMap<Conversation, ConversationDto>().ReverseMap();
 			CreateMap<ConversationParticipant, ConversationParticipantDto>().ReverseMap();
-			CreateMap<ApplicationUser, UserDto>().ReverseMap();
+			CreateMap<ApplicationUser, UserDto>()
+				.ForMember(dest => dest.Email, opt => opt.Ignore())
+				.ReverseMap();
 			CreateMap<ApplicationUser, UserDetailDto>().ReverseMap();
 			CreateMap<City, CityDto>().ReverseMap();
 			CreateMap<Review, ReviewDto>().ReverseMap();

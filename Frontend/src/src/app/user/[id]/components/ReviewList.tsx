@@ -44,7 +44,7 @@ export function ReviewList({ page, onPageChange }: ReviewListProps) {
     };
 
     return (
-        <>
+        <div className="review-list-layout">
             <ul className="review-list">
                 {page.items.map((review) => (
                     <li
@@ -80,7 +80,10 @@ export function ReviewList({ page, onPageChange }: ReviewListProps) {
                 ))}
             </ul>
 
-            <nav aria-label="Review pagination">
+            <nav
+                className="review-list-layout__pagination"
+                aria-label="Review pagination"
+            >
                 <ul className="pagination justify-content-center mt-4">
                     <li
                         className={`page-item ${isPrevDisabled ? 'disabled' : ''}`}
@@ -122,6 +125,6 @@ export function ReviewList({ page, onPageChange }: ReviewListProps) {
                     </li>
                 </ul>
             </nav>
-        </>
+        </div>
     );
 }

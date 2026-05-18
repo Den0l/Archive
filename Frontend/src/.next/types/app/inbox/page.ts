@@ -1,4 +1,4 @@
-// File: C:\Projects\MPT\BSfashion\SecondhandMarketplace\Frontend\src\src\app\inbox\page.tsx
+// File: C:\Projects\MPT\Archive\ArchiveWeb\Frontend\src\src\app\inbox\page.tsx
 import * as entry from '../../../../src/app/inbox/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

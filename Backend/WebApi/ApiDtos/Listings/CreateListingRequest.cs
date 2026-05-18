@@ -9,7 +9,7 @@ namespace WebApi.ApiDtos.Listings
     /// </summary>
     public class CreateListingRequest
     {
-        [Range(typeof(decimal), "1", "1000000")]
+        [Range(typeof(decimal), "1", "100000000")]
         public decimal Price { get; set; }
 
         [NotEmptyGuid]

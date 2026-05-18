@@ -41,9 +41,16 @@ namespace WebApi.Controllers
             if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
 
+            if (request.RevieweeId == userId)
+                return BadRequest("Нельзя оставить отзыв самому себе.");
+
             var systemUser = await systemUserProvider.GetSystemUserAsync();
             if (request.RevieweeId == systemUser.Id)
                 return BadRequest("Нельзя оставить отзыв системному пользователю.");
+
+            var reviewee = await userManager.FindByIdAsync(request.RevieweeId.ToString());
+            if (reviewee == null)
+                return NotFound("Получатель отзыва не найден.");
 
             var domain = mapper.Map<Review>(request);
             domain.ReviewerId = userId;
@@ -76,7 +83,9 @@ namespace WebApi.Controllers
             var dtos = reviews.Select(r =>
             {
                 var dto = mapper.Map<ReviewDto>(r);
-                dto.Reviewer = userDtoMap[r.ReviewerId];
+                dto.Reviewer = userDtoMap.TryGetValue(r.ReviewerId, out var reviewerDto)
+                    ? reviewerDto
+                    : new UserDto { Id = r.ReviewerId, Nickname = "Удалённый пользователь" };
                 return dto;
             }).ToList();
 

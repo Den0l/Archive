@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "uomQhbFN3Gg=",
+  "dgSpecHash": "73CWzdngSBk=",
   "success": true,
-  "projectFilePath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Application\\Application.csproj",
+  "projectFilePath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Application\\Application.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Ddell\\.nuget\\packages\\nettopologysuite\\2.6.0\\nettopologysuite.2.6.0.nupkg.sha512"
   ],

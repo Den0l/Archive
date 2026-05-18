@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "FyJxapaMdlc=",
+  "dgSpecHash": "yRPa17ykp9M=",
   "success": true,
-  "projectFilePath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Test\\Test.csproj",
+  "projectFilePath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Test\\Test.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Ddell\\.nuget\\packages\\automapper\\14.0.0\\automapper.14.0.0.nupkg.sha512",
     "C:\\Users\\Ddell\\.nuget\\packages\\bouncycastle.cryptography\\2.5.1\\bouncycastle.cryptography.2.5.1.nupkg.sha512",

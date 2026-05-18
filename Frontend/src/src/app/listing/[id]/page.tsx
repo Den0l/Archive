@@ -23,6 +23,7 @@ import {
     validateMessageText,
     VALIDATION_LIMITS,
 } from '@/utils/validation';
+import { resolveApiAssetUrl } from '@/utils/assetUrl';
 
 export default function ListingPage({ params }: { params: { id: string } }) {
     const { id } = params;
@@ -204,7 +205,9 @@ export default function ListingPage({ params }: { params: { id: string } }) {
             id: listing.id,
             title: listing.title,
             price: listing.price,
-            imageUrl: listing.images[0]?.imageUrl || '/default-image.jpg',
+            imageUrl:
+                resolveApiAssetUrl(listing.images[0]?.imageUrl) ||
+                '/default-image.jpg',
         });
     };
 
@@ -225,7 +228,9 @@ export default function ListingPage({ params }: { params: { id: string } }) {
             id: listing.id,
             title: listing.title,
             price: listing.price,
-            imageUrl: listing.images[0]?.imageUrl || '/default-image.jpg',
+            imageUrl:
+                resolveApiAssetUrl(listing.images[0]?.imageUrl) ||
+                '/default-image.jpg',
             isSold: listing.isSold,
             isArchived: listing.isArchived,
         });
@@ -323,7 +328,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
             onClick={() => setActiveImageIndex(idx)}
         >
             <img
-                src={img.imageUrl}
+                src={resolveApiAssetUrl(img.imageUrl)}
                 alt={`${listing.title} ${idx + 1}`}
                 className={styles.thumbnail}
             />
@@ -338,7 +343,9 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                         {mainImageIndex !== null ? (
                             <>
                                 <img
-                                    src={listing.images[mainImageIndex].imageUrl}
+                                    src={resolveApiAssetUrl(
+                                        listing.images[mainImageIndex].imageUrl
+                                    )}
                                     alt={listing.title}
                                     className={styles.mainImage}
                                     onClick={() =>
@@ -459,7 +466,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                                     variant={inCart ? 'secondary' : 'primary'}
                                     onClick={handleCartToggle}
                                     className={styles.cartButton}
-                                    disabled={!inCart && isInactive}
+                                    disabled={isInactive}
                                 >
                                     {inCart
                                         ? 'Убрать из корзины'
@@ -577,11 +584,11 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                     {selectedImageIndex !== null && (
                         <div className="d-flex flex-column align-items-center">
                             <img
-                                src={
+                                src={resolveApiAssetUrl(
                                     listing.images[selectedImageIndex].imageUrl
-                                }
+                                )}
                                 alt="Full size"
-                                className="img-fluid"
+                                className={styles.modalImage}
                             />
                             <div className="mt-3 d-flex justify-content-center gap-2 w-100 flex-wrap">
                                 <Button onClick={handlePreviousImage}>

@@ -143,6 +143,7 @@
     gap: var(--spacing-sm);
     align-items: center;
     justify-content: flex-end;
+    padding: 1rem;
 }
 
 .adminScope :global(.admin-management-item__button) {
@@ -218,6 +219,44 @@
     }
 }
 
+@media (min-width: 769px) {
+    .adminScope :global(.admin-category-item__row),
+    .adminScope :global(.admin-property-item__header),
+    .adminScope :global(.admin-property-value-item),
+    .adminScope :global(.admin-category-property-row) {
+        flex-direction: row !important;
+        align-items: center !important;
+    }
+
+    .adminScope :global(.admin-category-item__row > span),
+    .adminScope :global(.admin-property-item__header > :first-child),
+    .adminScope :global(.admin-property-value-item__name),
+    .adminScope :global(.admin-category-property-row__name) {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .adminScope :global(.admin-category-item__actions),
+    .adminScope :global(.admin-property-item__actions),
+    .adminScope :global(.admin-property-value-item__actions),
+    .adminScope :global(.admin-category-property-row__actions) {
+        margin-left: auto;
+        align-self: center;
+        justify-content: flex-end;
+        flex-wrap: nowrap !important;
+    }
+
+    .adminScope :global(.admin-actions-menu__panel) {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .adminScope :global(.admin-category-item__action-btn) {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}
+
 .adminScope :global(.admin-property-item__actions) {
     justify-content: flex-end;
 }
@@ -285,6 +324,16 @@
         align-self: flex-end;
     }
 
+    .adminScope :global(.admin-category-item__row) {
+        flex-direction: row !important;
+        align-items: center !important;
+    }
+
+    .adminScope :global(.admin-category-item__row > span) {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
     .adminScope :global(.admin-category-item__action-btn) {
         width: 100%;
         flex: 1 1 100%;
@@ -300,18 +349,21 @@
     }
 
     .adminScope :global(.admin-management-item) {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        align-items: center;
     }
 
     .adminScope :global(.admin-management-item__title) {
-        width: 100%;
+        width: auto;
+        flex: 1 1 auto;
         margin-right: 0;
+        min-width: 0;
     }
 
     .adminScope :global(.admin-management-item__actions) {
         width: auto;
-        align-self: flex-end;
+        align-self: auto;
+        margin-left: auto;
         justify-content: flex-end;
     }
 
@@ -324,7 +376,24 @@
     .adminScope :global(.admin-property-item__actions),
     .adminScope :global(.admin-property-value-item__actions) {
         width: auto;
-        align-self: flex-end;
+        align-self: auto;
+        margin-left: auto;
+        justify-content: flex-end;
+    }
+
+    .adminScope :global(.admin-category-property-row) {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .adminScope :global(.admin-category-property-row__name) {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .adminScope :global(.admin-category-property-row__actions) {
+        align-self: auto;
+        margin-left: auto;
     }
 
     .adminScope :global(.admin-actions-menu) {
@@ -374,6 +443,19 @@
         width: 100%;
     }
 
+    .adminScope :global(.admin-property-item__header),
+    .adminScope :global(.admin-property-value-item) {
+        flex-direction: row !important;
+        align-items: center !important;
+    }
+
+    .adminScope :global(.admin-property-item__header > :first-child),
+    .adminScope :global(.admin-property-value-item__name),
+    .adminScope :global(.admin-category-property-row__name) {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
     .adminScope :global(.admin-property-item__actions .btn),
     .adminScope :global(.admin-property-item__edit .btn),
     .adminScope :global(.admin-property-value-item__actions .btn),
@@ -385,17 +467,11 @@
         width: 100%;
     }
 
-    .adminScope :global(.admin-property-value-item) {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
     .adminScope :global(.admin-property-value-item__name) {
-        width: 100%;
+        width: auto;
         margin-right: 0;
     }
 
-    .adminScope :global(.admin-category-property-row),
     .adminScope :global(.admin-available-property-row) {
         flex-direction: column;
         align-items: stretch;

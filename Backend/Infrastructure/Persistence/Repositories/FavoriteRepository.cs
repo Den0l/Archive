@@ -20,18 +20,46 @@ namespace Infrastructure.Persistence.Repositories
 
         public async Task<List<FavoriteItem>> GetByUserIdAsync(Guid userId)
         {
+            // Cleanup legacy records where a user favorited their own listing.
+            var ownFavorites = await dbContext.FavoriteItems
+                .Where(fi => fi.UserId == userId && fi.Listing.SellerId == userId)
+                .ToListAsync();
+            if (ownFavorites.Count > 0)
+            {
+                dbContext.FavoriteItems.RemoveRange(ownFavorites);
+                await dbContext.SaveChangesAsync();
+            }
+
             return await dbContext.FavoriteItems
                 .Include(fi => fi.Listing)
                     .ThenInclude(l => l.Images)
-                .Where(fi => fi.UserId == userId)
+                .Where(fi => fi.UserId == userId && fi.Listing.SellerId != userId)
                 .ToListAsync();
         }
 
         public async Task<FavoriteItem?> AddAsync(Guid userId, Guid listingId)
         {
-            var listingExists = await dbContext.Listings.AnyAsync(l => l.Id == listingId);
-            if (!listingExists)
+            var listingOwnerId = await dbContext.Listings
+                .Where(l => l.Id == listingId)
+                .Select(l => (Guid?)l.SellerId)
+                .FirstOrDefaultAsync();
+            if (!listingOwnerId.HasValue)
+            {
                 return null;
+            }
+
+            if (listingOwnerId.Value == userId)
+            {
+                var ownFavorite = await dbContext.FavoriteItems
+                    .FirstOrDefaultAsync(fi => fi.UserId == userId && fi.ListingId == listingId);
+                if (ownFavorite != null)
+                {
+                    dbContext.FavoriteItems.Remove(ownFavorite);
+                    await dbContext.SaveChangesAsync();
+                }
+
+                return null;
+            }
 
             var existing = await dbContext.FavoriteItems
                 .FirstOrDefaultAsync(fi => fi.UserId == userId && fi.ListingId == listingId);

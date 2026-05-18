@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "yluq/MYXaGE=",
+  "dgSpecHash": "/2nmRlnOYp0=",
   "success": true,
-  "projectFilePath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Infrastructure\\Infrastructure.csproj",
+  "projectFilePath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Infrastructure\\Infrastructure.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Ddell\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Ddell\\.nuget\\packages\\microsoft.aspnetcore.cryptography.internal\\8.0.14\\microsoft.aspnetcore.cryptography.internal.8.0.14.nupkg.sha512",

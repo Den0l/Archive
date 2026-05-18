@@ -205,17 +205,18 @@ namespace WebApi.Services
         public Task SendPasswordResetAsync(
             string toEmail,
             string? toName,
-            string newPassword)
+            string resetUrl)
         {
             var subject = $"{GetOptions().BrandName}: сброс пароля";
+            var safeDisplayUrl = WebUtility.HtmlEncode(resetUrl);
             var body = BuildShell(
                 "Сброс пароля",
                 $@"
                     <p>Здравствуйте, {GetSafeName(toName)}.</p>
-                    <p>Вы запросили сброс пароля. Ваш новый временный пароль:</p>
-                    <p style=""font-size:22px;font-weight:700;letter-spacing:2px;margin:12px 0;color:#000099;background:#ffffcc;display:inline-block;padding:8px 16px;border:2px solid #ff9900;"">{WebUtility.HtmlEncode(newPassword)}</p>
-                    <p>После входа рекомендуем сменить пароль в настройках профиля.</p>
-                    <p>Если вы не запрашивали сброс пароля, проигнорируйте это письмо.</p>");
+                    <p>Вы запросили сброс пароля. Чтобы задать новый пароль, перейдите по ссылке ниже. Ссылка действительна ограниченное время.</p>
+                    <p><a href=""{resetUrl}"" target=""_blank"" rel=""noopener noreferrer"" style=""display:inline-block;padding:10px 18px;background:#000099;color:#ffffff;text-decoration:none;border-radius:4px;"">Установить новый пароль</a></p>
+                    <p>Если кнопка не работает, скопируйте адрес: <br/><a href=""{resetUrl}"" target=""_blank"" rel=""noopener noreferrer"" style=""word-break:break-all;color:#000099;"">{safeDisplayUrl}</a></p>
+                    <p>Если вы не запрашивали сброс пароля, проигнорируйте это письмо — пароль изменён не будет.</p>");
 
             return SendEmailAsync(toEmail, toName, subject, body);
         }
@@ -252,6 +253,7 @@ namespace WebApi.Services
             }.ToMessageBody();
 
             using var client = new MailKit.Net.Smtp.SmtpClient();
+            client.CheckCertificateRevocation = options.CheckCertificateRevocation;
             await client.ConnectAsync(options.Host, options.Port, GetSecureSocketOptions(options));
 
             if (!string.IsNullOrWhiteSpace(options.Username))
@@ -358,11 +360,65 @@ namespace WebApi.Services
                 baseUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
             }
 
-            baseUrl = string.IsNullOrWhiteSpace(baseUrl)
-                ? "http://localhost:3000"
-                : baseUrl.TrimEnd('/');
+            baseUrl = NormalizeFrontendBaseUrl(baseUrl);
+            var normalizedPath = string.IsNullOrWhiteSpace(path)
+                ? string.Empty
+                : path.StartsWith('/') ? path : $"/{path}";
 
-            return $"{baseUrl}{path}";
+            return $"{baseUrl}{normalizedPath}";
+        }
+
+        private static string NormalizeFrontendBaseUrl(string? rawBaseUrl)
+        {
+            var candidate = string.IsNullOrWhiteSpace(rawBaseUrl)
+                ? "http://localhost:3000"
+                : rawBaseUrl.Trim();
+
+            if (TryBuildAbsoluteHttpUrl(candidate, out var normalizedAbsolute))
+            {
+                return normalizedAbsolute;
+            }
+
+            var defaultScheme = candidate.StartsWith(
+                                    "localhost",
+                                    StringComparison.OrdinalIgnoreCase) ||
+                                candidate.StartsWith(
+                                    "127.0.0.1",
+                                    StringComparison.OrdinalIgnoreCase)
+                ? "http://"
+                : "https://";
+
+            var withScheme = $"{defaultScheme}{candidate.TrimStart('/')}";
+            if (TryBuildAbsoluteHttpUrl(withScheme, out normalizedAbsolute))
+            {
+                return normalizedAbsolute;
+            }
+
+            return "http://localhost:3000";
+
+            static bool TryBuildAbsoluteHttpUrl(string value, out string normalized)
+            {
+                normalized = string.Empty;
+                if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(
+                        uri.Scheme,
+                        Uri.UriSchemeHttp,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(
+                        uri.Scheme,
+                        Uri.UriSchemeHttps,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                normalized = uri.OriginalString.TrimEnd('/');
+                return true;
+            }
         }
 
         private string GetSafeName(string? name)
@@ -394,7 +450,11 @@ namespace WebApi.Services
                 FromEmail = GetRequired("Email:FromEmail", "SMTP_FROM"),
                 FromName = GetOptional("Email:FromName", "SMTP_FROM_NAME") ?? "Secondhand Marketplace",
                 BrandName = GetOptional("Email:BrandName", "MARKETPLACE_NAME") ?? "Secondhand Marketplace",
-                EnableSsl = GetBool("Email:EnableSsl", "SMTP_ENABLE_SSL", true)
+                EnableSsl = GetBool("Email:EnableSsl", "SMTP_ENABLE_SSL", true),
+                CheckCertificateRevocation = GetBool(
+                    "Email:CheckCertificateRevocation",
+                    "SMTP_CHECK_CERTIFICATE_REVOCATION",
+                    true)
             };
         }
 
@@ -465,6 +525,8 @@ namespace WebApi.Services
             public string FromName { get; init; } = string.Empty;
             public string BrandName { get; init; } = string.Empty;
             public bool EnableSsl { get; init; }
+            public bool CheckCertificateRevocation { get; init; }
         }
     }
 }
+

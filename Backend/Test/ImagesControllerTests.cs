@@ -58,6 +58,27 @@ namespace Test
         }
 
         [Fact]
+        public async Task RemoveBackground_ReturnsPng_WhenFileHasNoExtensionButImageMimeType()
+        {
+            var backgroundRemovalService = new FakeBackgroundRemovalService
+            {
+                Result = [137, 80, 78, 71],
+            };
+            var controller = CreateController(
+                backgroundRemovalService: backgroundRemovalService);
+            var request = new RemoveBackgroundRequest
+            {
+                File = CreateFormFile("camera_upload", [1, 2, 3], "image/jpeg"),
+            };
+
+            var result = await controller.RemoveBackground(request, CancellationToken.None);
+
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("image/png", fileResult.ContentType);
+            Assert.Equal(backgroundRemovalService.Result, fileResult.FileContents);
+        }
+
+        [Fact]
         public async Task RemoveBackground_ReturnsBadRequest_WhenFileIsTooLarge()
         {
             var controller = CreateController();
@@ -137,15 +158,24 @@ namespace Test
 
             return new ImagesController(
                 repository ?? new FakeImageRepository(),
+                listingRepository: null!,
                 backgroundRemovalService ?? new FakeBackgroundRemovalService(),
+                userManager: null!,
                 NullLogger<ImagesController>.Instance,
                 mapper);
         }
 
-        private static IFormFile CreateFormFile(string fileName, byte[] content)
+        private static IFormFile CreateFormFile(
+            string fileName,
+            byte[] content,
+            string? contentType = null)
         {
             var stream = new MemoryStream(content);
-            return new FormFile(stream, 0, content.Length, "file", fileName);
+            return new FormFile(stream, 0, content.Length, "file", fileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = contentType ?? string.Empty,
+            };
         }
 
         private sealed class FakeBackgroundRemovalService : IBackgroundRemovalService

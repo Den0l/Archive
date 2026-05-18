@@ -1,7 +1,9 @@
 using Application.Interfaces.Repositories;
 using AutoMapper;
 using Domain.Entities;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.ApiDtos.Conversations;
 using WebApi.ApiDtos.Messages;
@@ -16,18 +18,21 @@ namespace WebApi.Controllers
         private readonly IConversationRepository conversationRepository;
         private readonly IMessageRepository messageRepository;
         private readonly ISystemUserProvider systemUserProvider;
+        private readonly UserManager<ApplicationUser> userManager;
         private readonly IMapper mapper;
 
         public ConversationsController(
             IConversationRepository conversationRepository,
             IMessageRepository messageRepository,
             ISystemUserProvider systemUserProvider,
+            UserManager<ApplicationUser> userManager,
             IMapper mapper
         )
         {
             this.conversationRepository = conversationRepository;
             this.messageRepository = messageRepository;
             this.systemUserProvider = systemUserProvider;
+            this.userManager = userManager;
             this.mapper = mapper;
         }
 
@@ -44,6 +49,22 @@ namespace WebApi.Controllers
             if (unauthorizedResult != null)
             {
                 return unauthorizedResult;
+            }
+
+            if (request.RecipientId == Guid.Empty)
+            {
+                return BadRequest("Некорректный получатель.");
+            }
+
+            if (request.RecipientId == senderId)
+            {
+                return BadRequest("Нельзя начать беседу с самим собой.");
+            }
+
+            var recipient = await userManager.FindByIdAsync(request.RecipientId.ToString());
+            if (recipient == null)
+            {
+                return NotFound("Получатель не найден.");
             }
 
             var existingConversation = await conversationRepository
@@ -234,7 +255,7 @@ namespace WebApi.Controllers
         /// Returns the system user's ID.
         /// </summary>
         [HttpGet("system-user-id")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<IActionResult> GetSystemUserId()
         {
             var systemUser = await systemUserProvider.GetSystemUserAsync();

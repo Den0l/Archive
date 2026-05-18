@@ -11,6 +11,40 @@ namespace Infrastructure.Persistence.Repositories
     public class ImageRepository : IImageRepository
     {
         private const int MaxImagesPerListing = 10;
+        private static readonly HashSet<string> AllowedImageExtensions = new(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg",
+            ".jpeg",
+            ".jfif",
+            ".png",
+            ".webp",
+            ".heif",
+            ".heic",
+            ".avif",
+            ".gif",
+            ".bmp",
+        };
+
+        private static readonly Dictionary<string, string> ExtensionByMimeType =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["image/jpeg"] = ".jpg",
+                ["image/jpg"] = ".jpg",
+                ["image/pjpeg"] = ".jpg",
+                ["image/jfif"] = ".jpg",
+                ["image/png"] = ".png",
+                ["image/webp"] = ".webp",
+                ["image/heif"] = ".heif",
+                ["image/heic"] = ".heic",
+                ["image/heif-sequence"] = ".heif",
+                ["image/heic-sequence"] = ".heic",
+                ["image/avif"] = ".avif",
+                ["image/gif"] = ".gif",
+                ["image/bmp"] = ".bmp",
+                ["image/x-ms-bmp"] = ".bmp",
+            };
+
         private readonly IWebHostEnvironment webHostEnvironment;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly MarketplaceDbContext dbContext;
@@ -59,7 +93,7 @@ namespace Infrastructure.Persistence.Repositories
             var image = new Image
             {
                 FileName = $"{Guid.NewGuid()}",
-                FileExtension = Path.GetExtension(file.FileName),
+                FileExtension = ResolveFileExtension(file),
                 FileSizeInBytes = file.Length,
                 ListingId = listingId,
             };
@@ -138,6 +172,40 @@ namespace Infrastructure.Persistence.Repositories
 
             var content = await File.ReadAllBytesAsync(localFilePath, cancellationToken);
             return new StoredImageFile(image, localFilePath, content);
+        }
+
+        private static string ResolveFileExtension(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName);
+            if (AllowedImageExtensions.Contains(extension))
+            {
+                return extension.ToLowerInvariant();
+            }
+
+            var normalizedContentType = NormalizeContentType(file.ContentType);
+            if (!string.IsNullOrWhiteSpace(normalizedContentType) &&
+                ExtensionByMimeType.TryGetValue(normalizedContentType, out var mappedExtension))
+            {
+                return mappedExtension;
+            }
+
+            return ".jpg";
+        }
+
+        private static string? NormalizeContentType(string? contentType)
+        {
+            if (string.IsNullOrWhiteSpace(contentType))
+            {
+                return null;
+            }
+
+            var separatorIndex = contentType.IndexOf(';');
+            var normalized = separatorIndex >= 0
+                ? contentType[..separatorIndex]
+                : contentType;
+
+            normalized = normalized.Trim();
+            return normalized.Length == 0 ? null : normalized;
         }
 
         private string GetLocalFilePath(Image image)

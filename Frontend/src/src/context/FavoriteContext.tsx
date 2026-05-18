@@ -22,6 +22,7 @@ import {
     removeFavorite as removeFavoriteApi,
 } from '@/services/favoriteService';
 import { FavoriteItemDto } from '@/types/api/favorites';
+import { resolveApiAssetUrl } from '@/utils/assetUrl';
 
 export interface FavoriteItem {
     id: string;
@@ -53,7 +54,9 @@ const mapDtoToFavorite = (dto: FavoriteItemDto): FavoriteItem => ({
     id: dto.listingId,
     title: dto.listing?.title ?? 'Объявление удалено',
     price: dto.listing?.price ?? 0,
-    imageUrl: dto.listing?.images?.[0]?.imageUrl || '/default-image.jpg',
+    imageUrl:
+        resolveApiAssetUrl(dto.listing?.images?.[0]?.imageUrl) ||
+        '/default-image.jpg',
     isSold: dto.listing?.isSold ?? true,
     isArchived: dto.listing?.isArchived ?? true,
 });
@@ -195,3 +198,4 @@ export const useFavorites = (): FavoriteContextType => {
         'FavoriteProvider'
     );
 };
+

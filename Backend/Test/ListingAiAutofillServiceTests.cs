@@ -195,7 +195,7 @@ namespace Test
                     Assert.Equal(colorPropertyId, selection.ListingPropertyId);
                     Assert.Equal(whiteValueId, selection.SelectedListingPropertyValueId);
                 });
-            Assert.Contains("Дополнительно: Материал: Замша.", result.Description);
+            Assert.Contains("Материал: Замша", result.Description);
             Assert.NotEmpty(result.Warnings);
         }
 
@@ -272,7 +272,10 @@ namespace Test
         private static IFormFile CreateFormFile(string fileName, byte[] content)
         {
             var stream = new MemoryStream(content);
-            return new FormFile(stream, 0, content.Length, "file", fileName);
+            return new FormFile(stream, 0, content.Length, "file", fileName)
+            {
+                Headers = new HeaderDictionary(),
+            };
         }
 
         private static byte[] CreateTestImageBytes()

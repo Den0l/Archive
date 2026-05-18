@@ -398,7 +398,16 @@
     --inbox-surface-bg: var(--theme-surface);
 }
 
-:global(html[data-theme='light']) .conversationName,
-:global(html[data-theme='dark']) .conversationName {
+:global(html[data-theme='light']) .conversationName{
     color: #000 !important;
+}
+:global(html[data-theme='dark']) .conversationName {
+    color: #e8f1ff !important;
+}
+
+:global(html[data-theme='light']) .conversationTime{
+    color: #000 !important;
+}
+:global(html[data-theme='dark']) .conversationTime {
+    color: #e8f1ff !important;
 }

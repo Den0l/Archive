@@ -83,6 +83,11 @@ namespace WebApi.Controllers
         public async Task<IActionResult> GetById(Guid id)
         {
             var domain = await repository.GetByIdAsync(id);
+            if (domain == null)
+            {
+                return NotFound();
+            }
+
             return Ok(mapper.Map<CategoryDetailDto>(domain));
         }
 
@@ -106,6 +111,11 @@ namespace WebApi.Controllers
         {
             categoryName = WebUtility.UrlDecode(categoryName);
             var domain = await repository.GetByNameAsync(categoryName);
+            if (domain == null)
+            {
+                return NotFound();
+            }
+
             return Ok(mapper.Map<CategoryDetailDto>(domain));
         }
         /// <summary>

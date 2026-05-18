@@ -17,6 +17,7 @@ import {
 import { createConversation } from '@/services/conversationService';
 import { Order, OrderStatus } from '@/types/api/orders';
 import { getApiErrorMessage } from '@/utils/validation';
+import { resolveApiAssetUrl } from '@/utils/assetUrl';
 import { useAsyncCallback } from '@/sharedComponents/hooks/useAsyncCallback';
 
 const TEXT = {
@@ -137,7 +138,8 @@ function OrderCard({
     onCancel,
     onOpenChat,
 }: OrderCardProps) {
-    const imageUrl = order.listingImageUrl || '/default-image.jpg';
+    const imageUrl =
+        resolveApiAssetUrl(order.listingImageUrl) || '/default-image.jpg';
     const canManage = role === 'seller' && order.status === OrderStatus.Pending;
     const renderChatLink = (recipientId: string, label: string) => {
         const isLoading = chatLoadingRecipientId === recipientId;

@@ -34,6 +34,10 @@ const isHeifFile = (file: File) =>
     HEIF_MIME_TYPES.has(file.type.toLowerCase()) ||
     HEIF_EXTENSIONS.has(getFileExtension(file.name));
 
+const isLikelyImageFile = (file: File) =>
+    file.type.toLowerCase().startsWith('image/') ||
+    getFileExtension(file.name).length > 0;
+
 const loadImageElement = (file: File): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
         const image = new Image();
@@ -89,8 +93,9 @@ export const resizeImageFileIfNeeded = async (
     try {
         image = await loadImageElement(file);
     } catch (error) {
-        if (isHeifFile(file)) {
-            // HEIF/HEIC can be unsupported in some browsers: keep original file.
+        if (isHeifFile(file) || isLikelyImageFile(file)) {
+            // Some mobile browsers can't decode certain formats for canvas processing.
+            // In that case we keep the original file and let backend handle it.
             return file;
         }
         throw error;

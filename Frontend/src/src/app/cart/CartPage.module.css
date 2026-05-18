@@ -98,6 +98,10 @@
     position: relative;
 }
 
+.cartItemInactive {
+    filter: saturate(0.65) brightness(0.92);
+}
+
 .itemImage {
     display: flex;
     align-items: center;
@@ -214,13 +218,13 @@
 
 .soldRibbon {
     position: absolute;
-    top: 16px;
-    left: -42px;
-    transform: rotate(-45deg);
+    top: 8px;
+    left: 8px;
+    transform: none;
     background: #cc0000;
     color: #ffffff;
     font-weight: bold;
-    padding: 6px 48px;
+    padding: 0.3rem 0.65rem;
     box-shadow: 2px 2px 0 #660000;
     text-transform: uppercase;
     letter-spacing: 1px;

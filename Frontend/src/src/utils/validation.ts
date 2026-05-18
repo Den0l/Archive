@@ -18,7 +18,7 @@
     maxImageCount: 10,
     maxImageSizeBytes: 10 * 1024 * 1024,
     priceMin: 1,
-    priceMax: 1_000_000,
+    priceMax: 100_000_000,
     radiusMin: 1,
     radiusMax: 1000,
 } as const;
@@ -27,27 +27,37 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const ALLOWED_IMAGE_EXTENSIONS = [
     '.jpg',
     '.jpeg',
+    '.jfif',
     '.png',
     '.webp',
     '.heif',
     '.heic',
+    '.avif',
+    '.gif',
+    '.bmp',
 ];
 export const ALLOWED_IMAGE_MIME_TYPES = [
     'image/jpeg',
     'image/jpg',
     'image/pjpeg',
+    'image/jfif',
     'image/png',
     'image/webp',
     'image/heif',
     'image/heic',
     'image/heif-sequence',
     'image/heic-sequence',
+    'image/avif',
+    'image/gif',
+    'image/bmp',
+    'image/x-ms-bmp',
 ];
 export const ALLOWED_IMAGE_FORMATS_LABEL =
-    'JPG, JPEG, PNG, WEBP, HEIF и HEIC';
+    'JPG, JPEG, JFIF, PNG, WEBP, HEIF, HEIC, AVIF, GIF и BMP';
 export const IMAGE_UPLOAD_ACCEPT = [
     ...ALLOWED_IMAGE_EXTENSIONS,
     ...ALLOWED_IMAGE_MIME_TYPES,
+    'image/*',
 ].join(',');
 
 type TextValidationOptions = {
@@ -333,18 +343,29 @@ export const validateImageFiles = (
     }
 
     for (const file of newFiles) {
-        const extension = file.name
-            .slice(file.name.lastIndexOf('.'))
-            .toLowerCase();
+        const dotIndex = file.name.lastIndexOf('.');
+        const extension =
+            dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : '';
+        const normalizedType = file.type.trim().toLowerCase();
+        const hasAllowedExtension =
+            extension.length > 0 &&
+            ALLOWED_IMAGE_EXTENSIONS.includes(extension);
+        const hasAllowedMime =
+            normalizedType.length > 0 &&
+            ALLOWED_IMAGE_MIME_TYPES.includes(normalizedType);
+        const hasGenericImageMime =
+            normalizedType.startsWith('image/') &&
+            normalizedType !== 'image/svg+xml';
 
-        if (!ALLOWED_IMAGE_EXTENSIONS.includes(extension)) {
+        if (!hasAllowedExtension && !hasAllowedMime && !hasGenericImageMime) {
             return formatValidationError(
                 `Разрешены файлы ${ALLOWED_IMAGE_FORMATS_LABEL}.`
             );
         }
         if (
-            file.type &&
-            !ALLOWED_IMAGE_MIME_TYPES.includes(file.type)
+            normalizedType.length > 0 &&
+            !hasAllowedMime &&
+            !hasGenericImageMime
         ) {
             return formatValidationError(
                 `Разрешены файлы ${ALLOWED_IMAGE_FORMATS_LABEL}.`

@@ -14,6 +14,7 @@ namespace Application.Interfaces.Repositories
         Task<Order?> GetLatestPendingByListingIdAsync(Guid listingId);
         Task<List<Order>> GetByBuyerIdAsync(Guid buyerId);
         Task<List<Order>> GetBySellerIdAsync(Guid sellerId);
+        Task<bool> HasOtherActiveOrderAsync(Guid listingId, Guid excludeOrderId);
         Task UpdateAsync(Order order);
     }
 }

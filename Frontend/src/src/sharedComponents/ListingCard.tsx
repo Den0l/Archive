@@ -13,6 +13,7 @@ import {
     fetchPendingOrderByListing,
 } from '@/services/orderService';
 import { getApiErrorMessage } from '@/utils/validation';
+import { resolveApiAssetUrl } from '@/utils/assetUrl';
 
 interface ListingCardProps {
     listing: Listing;
@@ -27,7 +28,8 @@ export function ListingCard({ listing, stats, renderActions, onListingUpdated }:
     const { addFavorite, removeFavorite, isFavorite } = useFavorites();
     const { user: currentUser } = useAuth();
     const { addNotification } = useNotification();
-    const imageUrl = listing.images[0]?.imageUrl || '/default-image.jpg';
+    const imageUrl =
+        resolveApiAssetUrl(listing.images[0]?.imageUrl) || '/default-image.jpg';
     const createdDate = new Date(listing.createdAt);
     const formattedDate = createdDate.toLocaleDateString(undefined, {
         year: 'numeric',
@@ -203,7 +205,7 @@ export function ListingCard({ listing, stats, renderActions, onListingUpdated }:
                                     inCart ? 'btn-secondary' : 'btn-primary'
                                 } cart-button`}
                                 onClick={handleCartClick}
-                                disabled={!inCart && isInactive}
+                                disabled={isInactive}
                             >
                                 {inCart ? 'В корзине' : 'В корзину'}
                             </button>

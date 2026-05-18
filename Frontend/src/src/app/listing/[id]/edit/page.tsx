@@ -48,6 +48,7 @@ import {
     flattenCategoryHierarchy,
 } from '@/utils/categoryOptions';
 import { resizeImageFilesIfNeeded } from '@/utils/imageResizing';
+import { resolveApiAssetUrl } from '@/utils/assetUrl';
 import RequireAuth from '@/sharedComponents/RequireAuth';
 
 type EditListingFieldErrors = {
@@ -776,7 +777,8 @@ function EditListingContent({
                                     <EditablePhotoCard
                                         key={image.id}
                                         imageUrl={
-                                            image.previewUrl || image.imageUrl
+                                            image.previewUrl ||
+                                            resolveApiAssetUrl(image.imageUrl)
                                         }
                                         imageAlt="Фото объявления"
                                         name={`${image.fileName}${image.fileExtension}`}

@@ -149,7 +149,7 @@ namespace WebApi.Controllers
             if (order == null)
                 return NotFound();
 
-            if (order.SellerId != userId)
+            if (order.SellerId != userId && !await IsAdminAsync(userId))
                 return Forbid();
 
             if (order.Status != OrderStatus.Pending)
@@ -231,7 +231,7 @@ namespace WebApi.Controllers
             if (order == null)
                 return NotFound();
 
-            if (order.SellerId != userId)
+            if (order.SellerId != userId && !await IsAdminAsync(userId))
                 return Forbid();
 
             if (order.Status != OrderStatus.Pending)
@@ -241,11 +241,15 @@ namespace WebApi.Controllers
             order.CancelledAt = DateTime.Now;
 
             var listing = await listingRepository.GetByIdAsync(order.ListingId);
-            if (listing != null)
+            if (listing != null && listing.IsSold)
             {
-                listing.IsSold = false;
-                listing.IsArchived = false;
-                await listingRepository.UpdateAsync(listing.Id, listing);
+                var hasOtherActive = await orderRepository
+                    .HasOtherActiveOrderAsync(listing.Id, order.Id);
+                if (!hasOtherActive)
+                {
+                    listing.IsSold = false;
+                    await listingRepository.UpdateAsync(listing.Id, listing);
+                }
             }
 
             await orderRepository.UpdateAsync(order);
@@ -323,7 +327,7 @@ namespace WebApi.Controllers
             if (order == null)
                 return NotFound();
 
-            if (order.SellerId != userId)
+            if (order.SellerId != userId && !await IsAdminAsync(userId))
                 return Forbid();
 
             var listing = await listingRepository.GetByIdAsync(order.ListingId);
@@ -345,7 +349,7 @@ namespace WebApi.Controllers
             if (order == null)
                 return NotFound();
 
-            if (order.SellerId != userId)
+            if (order.SellerId != userId && !await IsAdminAsync(userId))
                 return Forbid();
 
             var listing = await listingRepository.GetByIdAsync(order.ListingId);
@@ -355,6 +359,17 @@ namespace WebApi.Controllers
             listing.IsArchived = false;
             await listingRepository.UpdateAsync(listing.Id, listing);
             return Ok();
+        }
+
+        private async Task<bool> IsAdminAsync(Guid userId)
+        {
+            var user = await userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                return false;
+            }
+
+            return await userManager.IsInRoleAsync(user, "Admin");
         }
 
         private async Task<OrderDto> MapToDtoAsync(Order order)

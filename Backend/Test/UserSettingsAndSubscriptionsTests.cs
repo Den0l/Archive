@@ -3,11 +3,13 @@ using Infrastructure.Identity;
 using Infrastructure.Identity.Interfaces;
 using Infrastructure.Persistence.Contexts;
 using Infrastructure.Persistence.Repositories;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using WebApi.ApiDtos.Auth;
@@ -30,8 +32,7 @@ namespace Test
 
             var result = await controller.RequestEmailChange(new RequestEmailChangeRequest
             {
-                NewEmail = "new@example.com",
-                CurrentPassword = TestFixture.ValidPassword
+                NewEmail = "new@example.com"
             });
 
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -41,26 +42,7 @@ namespace Test
             var reloadedUser = await fixture.UserManager.FindByIdAsync(user.Id.ToString());
             Assert.NotNull(reloadedUser);
             Assert.Equal("new@example.com", reloadedUser!.PendingEmail);
-            Assert.Equal(1, emailService.EmailChangeConfirmationCount);
-        }
-
-        [Fact]
-        public async Task RequestEmailChange_WithWrongPassword_ReturnsBadRequest()
-        {
-            using var fixture = new TestFixture();
-            var user = await fixture.CreateUserAsync("old@example.com", "SellerOne");
-            var controller = fixture.CreateUsersController(
-                user.Id,
-                new FakeNotificationEmailService());
-
-            var result = await controller.RequestEmailChange(new RequestEmailChangeRequest
-            {
-                NewEmail = "new@example.com",
-                CurrentPassword = "wrong-password"
-            });
-
-            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.Equal("Неверный текущий пароль.", badRequest.Value);
+            Assert.Equal(1, emailService.EmailChangeCodeCount);
         }
 
         [Fact]
@@ -225,6 +207,7 @@ namespace Test
                     UserManager,
                     mapper,
                     notificationEmailService,
+                    new InMemoryEmailVerificationService(),
                     NullLogger<UsersController>.Instance)
                 {
                     ControllerContext = CreateControllerContext(userId)
@@ -236,8 +219,10 @@ namespace Test
             {
                 return new AuthController(
                     UserManager,
+                    CreateSignInManager(UserManager),
                     new FakeTokenRepository(),
                     backgroundNotificationQueue,
+                    new ConfigurationBuilder().Build(),
                     NullLogger<AuthController>.Instance)
                 {
                     ControllerContext = new ControllerContext
@@ -245,6 +230,30 @@ namespace Test
                         HttpContext = new DefaultHttpContext()
                     }
                 };
+            }
+
+            private static SignInManager<ApplicationUser> CreateSignInManager(
+                UserManager<ApplicationUser> userManager)
+            {
+                var identityOptions = Options.Create(new IdentityOptions());
+                var contextAccessor = new HttpContextAccessor
+                {
+                    HttpContext = new DefaultHttpContext()
+                };
+                var claimsFactory = new UserClaimsPrincipalFactory<ApplicationUser>(
+                    userManager,
+                    identityOptions);
+                var schemes = new AuthenticationSchemeProvider(
+                    Options.Create(new AuthenticationOptions()));
+
+                return new SignInManager<ApplicationUser>(
+                    userManager,
+                    contextAccessor,
+                    claimsFactory,
+                    identityOptions,
+                    NullLogger<SignInManager<ApplicationUser>>.Instance,
+                    schemes,
+                    new DefaultUserConfirmation<ApplicationUser>());
             }
 
             public SellerSubscriptionsController CreateSellerSubscriptionsController(
@@ -339,6 +348,8 @@ namespace Test
         {
             public int EmailChangeConfirmationCount { get; private set; }
 
+            public int EmailChangeCodeCount { get; private set; }
+
             public Task SendEmailChangeConfirmationAsync(
                 Guid userId,
                 string toEmail,
@@ -432,6 +443,7 @@ namespace Test
                 string newEmail,
                 string code)
             {
+                EmailChangeCodeCount += 1;
                 return Task.CompletedTask;
             }
         }

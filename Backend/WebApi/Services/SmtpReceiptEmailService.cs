@@ -42,6 +42,7 @@ namespace WebApi.Services
             }.ToMessageBody();
 
             using var client = new MailKit.Net.Smtp.SmtpClient();
+            client.CheckCertificateRevocation = options.CheckCertificateRevocation;
             await client.ConnectAsync(options.Host, options.Port, GetSecureSocketOptions(options));
 
             if (!string.IsNullOrWhiteSpace(options.Username))
@@ -102,7 +103,11 @@ namespace WebApi.Services
                 FromEmail = GetRequired("Email:FromEmail", "SMTP_FROM"),
                 FromName = GetOptional("Email:FromName", "SMTP_FROM_NAME") ?? "Secondhand Marketplace",
                 BrandName = GetOptional("Email:BrandName", "MARKETPLACE_NAME") ?? "Secondhand Marketplace",
-                EnableSsl = GetBool("Email:EnableSsl", "SMTP_ENABLE_SSL", true)
+                EnableSsl = GetBool("Email:EnableSsl", "SMTP_ENABLE_SSL", true),
+                CheckCertificateRevocation = GetBool(
+                    "Email:CheckCertificateRevocation",
+                    "SMTP_CHECK_CERTIFICATE_REVOCATION",
+                    true)
             };
         }
 
@@ -266,6 +271,7 @@ namespace WebApi.Services
             public string FromName { get; init; } = string.Empty;
             public string BrandName { get; init; } = string.Empty;
             public bool EnableSsl { get; init; }
+            public bool CheckCertificateRevocation { get; init; }
         }
     }
 }

@@ -19,24 +19,25 @@ namespace WebApi.Controllers
     public class AuthController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly SignInManager<ApplicationUser> signInManager;
         private readonly ITokenRepository tokenRepository;
         private readonly IBackgroundNotificationQueue backgroundNotificationQueue;
+        private readonly IConfiguration configuration;
         private readonly ILogger<AuthController> logger;
 
-        /// <summary>
-        /// Constructor to initialize AuthController with necessary dependencies.
-        /// </summary>
-        /// <param name="userManager">ASP.NET Core Identity UserManager to manage user accounts.</param>
-        /// <param name="tokenRepository">Repository to handle JWT token generation.</param>
         public AuthController(
             UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
             ITokenRepository tokenRepository,
             IBackgroundNotificationQueue backgroundNotificationQueue,
+            IConfiguration configuration,
             ILogger<AuthController> logger)
         {
             this.userManager = userManager;
+            this.signInManager = signInManager;
             this.tokenRepository = tokenRepository;
             this.backgroundNotificationQueue = backgroundNotificationQueue;
+            this.configuration = configuration;
             this.logger = logger;
         }
 
@@ -84,13 +85,6 @@ namespace WebApi.Controllers
                 return BadRequest("Something went wrong");
             }
 
-            if (userManager.Users.Count() == 1)
-            {
-                identityResult = await userManager.AddToRolesAsync(
-                    user,
-                    new List<string> { "Admin" });
-            }
-
             identityResult = await userManager.AddToRolesAsync(user, new List<string> { "User" });
             if (!identityResult.Succeeded)
             {
@@ -115,8 +109,15 @@ namespace WebApi.Controllers
                 return BadRequest("Invalid credentials");
             }
 
-            var passwordValid = await userManager.CheckPasswordAsync(user, loginRequest.Password);
-            if (!passwordValid)
+            var signInResult = await signInManager.CheckPasswordSignInAsync(
+                user,
+                loginRequest.Password,
+                lockoutOnFailure: true);
+            if (signInResult.IsLockedOut)
+            {
+                return BadRequest("Аккаунт временно заблокирован из-за нескольких неудачных попыток. Попробуйте позже.");
+            }
+            if (!signInResult.Succeeded)
             {
                 return BadRequest("Invalid credentials");
             }
@@ -161,12 +162,6 @@ namespace WebApi.Controllers
                 MustChangePassword = user.MustChangePassword
             };
 
-            if (user.MustChangePassword)
-            {
-                user.MustChangePassword = false;
-                await userManager.UpdateAsync(user);
-            }
-
             return Ok(response);
         }
 
@@ -176,6 +171,9 @@ namespace WebApi.Controllers
         public async Task<IActionResult> ForgotPassword(
             [FromBody] ForgotPasswordRequest request)
         {
+            const string genericReply =
+                "Если указанный e-mail зарегистрирован, на него будет отправлена ссылка для сброса пароля.";
+
             var email = request.Email?.Trim();
             if (string.IsNullOrWhiteSpace(email))
             {
@@ -185,20 +183,11 @@ namespace WebApi.Controllers
             var user = await userManager.FindByEmailAsync(email);
             if (user == null)
             {
-                return Ok("Если указанный e-mail зарегистрирован, на него будет отправлен новый пароль.");
+                return Ok(genericReply);
             }
-
-            var newPassword = GenerateRandomPassword(12);
 
             var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
-            var resetResult = await userManager.ResetPasswordAsync(user, resetToken, newPassword);
-            if (!resetResult.Succeeded)
-            {
-                return BadRequest("Не удалось сбросить пароль.");
-            }
-
-            user.MustChangePassword = true;
-            await userManager.UpdateAsync(user);
+            var resetUrl = BuildPasswordResetUrl(email, resetToken);
 
             var nickname = user.Nickname;
             await backgroundNotificationQueue.QueueAsync(
@@ -206,38 +195,104 @@ namespace WebApi.Controllers
                     notificationEmailService.SendPasswordResetAsync(
                         email,
                         nickname,
-                        newPassword));
+                        resetUrl));
 
-            return Ok("Если указанный e-mail зарегистрирован, на него будет отправлен новый пароль.");
+            return Ok(genericReply);
         }
 
-        private static string GenerateRandomPassword(int length)
+        [AllowAnonymous]
+        [HttpPost]
+        [Route("ResetPassword")]
+        public async Task<IActionResult> ResetPassword(
+            [FromBody] ResetPasswordRequest request)
         {
-            const string upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            const string lower = "abcdefghijklmnopqrstuvwxyz";
-            const string digits = "0123456789";
-            const string special = "!@#$%&*";
-            const string all = upper + lower + digits + special;
-
-            var password = new char[length];
-            password[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
-            password[1] = lower[RandomNumberGenerator.GetInt32(lower.Length)];
-            password[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
-            password[3] = special[RandomNumberGenerator.GetInt32(special.Length)];
-
-            for (int i = 4; i < length; i++)
+            var email = request.Email.Trim();
+            var user = await userManager.FindByEmailAsync(email);
+            if (user == null)
             {
-                password[i] = all[RandomNumberGenerator.GetInt32(all.Length)];
+                return BadRequest("Не удалось сбросить пароль.");
             }
 
-            // Shuffle
-            for (int i = password.Length - 1; i > 0; i--)
+            var token = request.Token.Replace(' ', '+');
+            var resetResult = await userManager.ResetPasswordAsync(
+                user,
+                token,
+                request.NewPassword);
+            if (!resetResult.Succeeded)
             {
-                int j = RandomNumberGenerator.GetInt32(i + 1);
-                (password[i], password[j]) = (password[j], password[i]);
+                return BadRequest("Не удалось сбросить пароль. Возможно, ссылка устарела.");
             }
 
-            return new string(password);
+            await userManager.UpdateSecurityStampAsync(user);
+            return Ok("Пароль успешно изменён.");
+        }
+
+        private string BuildPasswordResetUrl(string email, string token)
+        {
+            var baseUrl = configuration["Frontend:BaseUrl"];
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                baseUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
+            }
+
+            baseUrl = NormalizeFrontendBaseUrl(baseUrl);
+
+            var encodedEmail = Uri.EscapeDataString(email);
+            var encodedToken = Uri.EscapeDataString(token);
+            return $"{baseUrl}/auth/reset-password?email={encodedEmail}&token={encodedToken}";
+        }
+
+        private static string NormalizeFrontendBaseUrl(string? rawBaseUrl)
+        {
+            var candidate = string.IsNullOrWhiteSpace(rawBaseUrl)
+                ? "http://localhost:3000"
+                : rawBaseUrl.Trim();
+
+            if (TryBuildAbsoluteHttpUrl(candidate, out var normalizedAbsolute))
+            {
+                return normalizedAbsolute;
+            }
+
+            var defaultScheme = candidate.StartsWith(
+                                    "localhost",
+                                    StringComparison.OrdinalIgnoreCase) ||
+                                candidate.StartsWith(
+                                    "127.0.0.1",
+                                    StringComparison.OrdinalIgnoreCase)
+                ? "http://"
+                : "https://";
+
+            var withScheme = $"{defaultScheme}{candidate.TrimStart('/')}";
+            if (TryBuildAbsoluteHttpUrl(withScheme, out normalizedAbsolute))
+            {
+                return normalizedAbsolute;
+            }
+
+            return "http://localhost:3000";
+
+            static bool TryBuildAbsoluteHttpUrl(string value, out string normalized)
+            {
+                normalized = string.Empty;
+                if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(
+                        uri.Scheme,
+                        Uri.UriSchemeHttp,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(
+                        uri.Scheme,
+                        Uri.UriSchemeHttps,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                normalized = uri.OriginalString.TrimEnd('/');
+                return true;
+            }
         }
 
         [AllowAnonymous]
@@ -251,11 +306,17 @@ namespace WebApi.Controllers
                 return BadRequest("Некорректный идентификатор пользователя.");
             }
 
-            var newEmail = request.NewEmail.Trim();
-            if (string.IsNullOrWhiteSpace(newEmail))
+            if (string.IsNullOrWhiteSpace(request.Token))
+            {
+                return BadRequest("Не указан токен подтверждения.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NewEmail))
             {
                 return BadRequest("Укажите новый e-mail.");
             }
+
+            var newEmail = request.NewEmail.Trim();
 
             var user = await userManager.FindByIdAsync(request.UserId.ToString());
             if (user == null)

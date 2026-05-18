@@ -90,7 +90,7 @@ export default function Login() {
         try {
             await forgotPassword({ email: normalizedEmail });
             addNotification(
-                'Если указанный e-mail зарегистрирован, на него будет отправлен новый пароль.',
+                'Если указанный e-mail зарегистрирован, на него будет отправлена ссылка для сброса пароля.',
                 { level: 'success' }
             );
             setShowForgotModal(false);
@@ -224,7 +224,7 @@ export default function Login() {
                 <Modal.Body>
                     <p className="text-muted mb-3">
                         Введите e-mail, на который зарегистрирован аккаунт. На
-                        него будет отправлен новый пароль.
+                        него будет отправлена ссылка для сброса пароля.
                     </p>
                     <div className="form-group">
                         <label htmlFor="forgot-email">Email</label>

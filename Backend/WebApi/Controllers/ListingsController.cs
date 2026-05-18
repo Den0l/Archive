@@ -33,14 +33,10 @@ namespace WebApi.Controllers
         private readonly IListingAiAutofillService listingAiAutofillService;
         private readonly ISellerSubscriptionRepository sellerSubscriptionRepository;
         private readonly IBackgroundNotificationQueue backgroundNotificationQueue;
+        private readonly IListingViewTracker listingViewTracker;
         private readonly ILogger<ListingsController> logger;
         private readonly Infrastructure.Persistence.Contexts.MarketplaceDbContext dbContext;
 
-        /// <summary>
-        /// Initializes a new instance of ListingsController
-        /// </summary>
-        /// <param name="repository">The repository for interacting with listing data.</param>
-        /// <param name="mapper">Mapper instance to handle mapping between domain models and DTOs.</param>
         public ListingsController(
             IListingRepository repository,
             UserManager<ApplicationUser> userManager,
@@ -48,6 +44,7 @@ namespace WebApi.Controllers
             IListingAiAutofillService listingAiAutofillService,
             ISellerSubscriptionRepository sellerSubscriptionRepository,
             IBackgroundNotificationQueue backgroundNotificationQueue,
+            IListingViewTracker listingViewTracker,
             ILogger<ListingsController> logger,
             Infrastructure.Persistence.Contexts.MarketplaceDbContext dbContext)
         {
@@ -57,6 +54,7 @@ namespace WebApi.Controllers
             this.listingAiAutofillService = listingAiAutofillService;
             this.sellerSubscriptionRepository = sellerSubscriptionRepository;
             this.backgroundNotificationQueue = backgroundNotificationQueue;
+            this.listingViewTracker = listingViewTracker;
             this.logger = logger;
             this.dbContext = dbContext;
         }
@@ -90,65 +88,21 @@ namespace WebApi.Controllers
                 return notFoundResult;
             }
 
-            if (TryGetAuthenticatedUserId(out var currentUserId))
+            Guid? viewerUserId = TryGetAuthenticatedUserId(out var currentUserId)
+                ? currentUserId
+                : null;
+            string? guestFingerprint = viewerUserId.HasValue
+                ? null
+                : BuildGuestViewerFingerprint();
+
+            var newViewTracked = await listingViewTracker.TrackAsync(
+                id,
+                viewerUserId,
+                guestFingerprint);
+
+            if (newViewTracked)
             {
-                var hasViewedAlready = await dbContext.ListingViews.AnyAsync(
-                    listingView =>
-                        listingView.ListingId == id &&
-                        listingView.ViewerId == currentUserId);
-
-                if (!hasViewedAlready)
-                {
-                    try
-                    {
-                        dbContext.ListingViews.Add(new ListingView
-                        {
-                            ListingId = id,
-                            ViewerId = currentUserId,
-                            ViewedAt = DateTime.Now
-                        });
-                        await dbContext.SaveChangesAsync();
-
-                        domain.ViewCount++;
-                        await dbContext.SaveChangesAsync();
-                    }
-                    catch (DbUpdateException)
-                    {
-                        // Another concurrent request has already saved this view.
-                    }
-                }
-            }
-            else
-            {
-                var viewerFingerprint = BuildGuestViewerFingerprint();
-                if (!string.IsNullOrWhiteSpace(viewerFingerprint))
-                {
-                    var hasViewedAlready = await dbContext.ListingGuestViews.AnyAsync(
-                        listingGuestView =>
-                            listingGuestView.ListingId == id &&
-                            listingGuestView.ViewerFingerprint == viewerFingerprint);
-
-                    if (!hasViewedAlready)
-                    {
-                        try
-                        {
-                            dbContext.ListingGuestViews.Add(new ListingGuestView
-                            {
-                                ListingId = id,
-                                ViewerFingerprint = viewerFingerprint,
-                                ViewedAt = DateTime.Now
-                            });
-                            await dbContext.SaveChangesAsync();
-
-                            domain.ViewCount++;
-                            await dbContext.SaveChangesAsync();
-                        }
-                        catch (DbUpdateException)
-                        {
-                            // Another concurrent request has already saved this guest view.
-                        }
-                    }
-                }
+                domain.ViewCount++;
             }
 
             return Ok(mapper.Map<ListingDetailDto>(domain));

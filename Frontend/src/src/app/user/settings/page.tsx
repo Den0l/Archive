@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
 import { type ThemeMode, useTheme } from '@/context/ThemeContext';
@@ -113,6 +113,10 @@ function UserSettingsContent() {
     const [notificationForm, setNotificationForm] =
         useState<NotificationPreferences>(DEFAULT_NOTIFICATIONS);
     const [notificationsSaving, setNotificationsSaving] = useState(false);
+    const notificationSaveInFlightRef = useRef(false);
+    const pendingNotificationFormRef = useRef<NotificationPreferences | null>(null);
+    const lastSavedNotificationFormRef =
+        useRef<NotificationPreferences>(DEFAULT_NOTIFICATIONS);
 
     const [newEmail, setNewEmail] = useState('');
     const [emailChangeCode, setEmailChangeCode] = useState('');
@@ -145,6 +149,8 @@ function UserSettingsContent() {
             if (!result) return;
             setSettings(result.settingsResponse);
             setNotificationForm(result.settingsResponse.notifications);
+            lastSavedNotificationFormRef.current =
+                result.settingsResponse.notifications;
             setSubscriptions(result.subscriptionsResponse);
         })();
     }, [loading, settingsInvoke, user]);
@@ -152,22 +158,60 @@ function UserSettingsContent() {
     const applySettings = useCallback((next: UserSettings) => {
         setSettings(next);
         setNotificationForm(next.notifications);
+        lastSavedNotificationFormRef.current = next.notifications;
     }, []);
 
-    const handleNotificationSave = async () => {
-        setNotificationsSaving(true);
-        try {
-            applySettings(await updateNotificationPreferences(notificationForm));
-            addNotification('Настройки уведомлений сохранены.', { level: 'success' });
-        } catch (error) {
-            addNotification(
-                getApiErrorMessage(error, 'Не удалось сохранить настройки уведомлений.'),
-                { level: 'error', importance: 'high' }
-            );
-        } finally {
-            setNotificationsSaving(false);
-        }
-    };
+    const saveNotificationPreferences = useCallback(
+        async (nextPreferences: NotificationPreferences) => {
+            pendingNotificationFormRef.current = nextPreferences;
+            if (notificationSaveInFlightRef.current) return;
+
+            notificationSaveInFlightRef.current = true;
+            setNotificationsSaving(true);
+            try {
+                while (pendingNotificationFormRef.current) {
+                    const preferencesToSave = pendingNotificationFormRef.current;
+                    pendingNotificationFormRef.current = null;
+
+                    const updatedSettings = await updateNotificationPreferences(
+                        preferencesToSave
+                    );
+                    setSettings(updatedSettings);
+                    lastSavedNotificationFormRef.current =
+                        updatedSettings.notifications;
+
+                    if (!pendingNotificationFormRef.current) {
+                        setNotificationForm(updatedSettings.notifications);
+                    }
+                }
+            } catch (error) {
+                pendingNotificationFormRef.current = null;
+                setNotificationForm(lastSavedNotificationFormRef.current);
+                addNotification(
+                    getApiErrorMessage(error, 'Не удалось сохранить настройки уведомлений.'),
+                    { level: 'error', importance: 'high' }
+                );
+            } finally {
+                notificationSaveInFlightRef.current = false;
+                setNotificationsSaving(false);
+            }
+        },
+        [addNotification]
+    );
+
+    const handleNotificationChange = useCallback(
+        <K extends keyof NotificationPreferences>(key: K, checked: boolean) => {
+            setNotificationForm((previous) => {
+                const nextPreferences: NotificationPreferences = {
+                    ...previous,
+                    [key]: checked,
+                };
+                void saveNotificationPreferences(nextPreferences);
+                return nextPreferences;
+            });
+        },
+        [saveNotificationPreferences]
+    );
 
     const handleRequestCurrentEmailCode = async () => {
         setEmailVerificationError('');
@@ -502,18 +546,10 @@ function UserSettingsContent() {
 
             <section className={`card shadow-sm border-0 ${styles.settingsCard} ${styles.notificationsCard}`}><div className="card-body p-4">
                 <h2 className="h4 mb-3">Уведомления на почту</h2>
-                <div className="form-check mb-3"><input id="notifyEmailOnNewMessage" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnNewMessage} onChange={(e)=>setNotificationForm((p)=>({...p,notifyEmailOnNewMessage:e.target.checked}))}/><label className="form-check-label" htmlFor="notifyEmailOnNewMessage">Новые сообщения в чате</label></div>
-                <div className="form-check mb-3"><input id="notifyEmailOnSellerOrder" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnSellerOrder} onChange={(e)=>setNotificationForm((p)=>({...p,notifyEmailOnSellerOrder:e.target.checked}))}/><label className="form-check-label" htmlFor="notifyEmailOnSellerOrder">Заказы от покупателей</label></div>
-                <div className="form-check mb-3"><input id="notifyEmailOnFollowedSellerListing" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnFollowedSellerListing} onChange={(e)=>setNotificationForm((p)=>({...p,notifyEmailOnFollowedSellerListing:e.target.checked}))}/><label className="form-check-label" htmlFor="notifyEmailOnFollowedSellerListing">Новое объявление у продавца</label></div>
-                <div className="form-check mb-4"><input id="notifyEmailOnLogin" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnLogin} onChange={(e)=>setNotificationForm((p)=>({...p,notifyEmailOnLogin:e.target.checked}))}/><label className="form-check-label" htmlFor="notifyEmailOnLogin">Вход в аккаунт</label></div>
-                <button
-                    type="button"
-                    className={`btn btn-primary ${styles.sectionButton}`}
-                    onClick={handleNotificationSave}
-                    disabled={notificationsSaving}
-                >
-                    {notificationsSaving ? 'Сохраняем настройки...' : 'Сохранить уведомления'}
-                </button>
+                <div className="form-check mb-3"><input id="notifyEmailOnNewMessage" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnNewMessage} onChange={(e)=>handleNotificationChange('notifyEmailOnNewMessage', e.target.checked)}/><label className="form-check-label" htmlFor="notifyEmailOnNewMessage">Новые сообщения в чате</label></div>
+                <div className="form-check mb-3"><input id="notifyEmailOnSellerOrder" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnSellerOrder} onChange={(e)=>handleNotificationChange('notifyEmailOnSellerOrder', e.target.checked)}/><label className="form-check-label" htmlFor="notifyEmailOnSellerOrder">Заказы от покупателей</label></div>
+                <div className="form-check mb-3"><input id="notifyEmailOnFollowedSellerListing" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnFollowedSellerListing} onChange={(e)=>handleNotificationChange('notifyEmailOnFollowedSellerListing', e.target.checked)}/><label className="form-check-label" htmlFor="notifyEmailOnFollowedSellerListing">Новое объявление у продавца</label></div>
+                <div className="form-check mb-4"><input id="notifyEmailOnLogin" type="checkbox" className="form-check-input" checked={notificationForm.notifyEmailOnLogin} onChange={(e)=>handleNotificationChange('notifyEmailOnLogin', e.target.checked)}/><label className="form-check-label" htmlFor="notifyEmailOnLogin">Вход в аккаунт</label></div>
             </div></section>
 
             <section className={`card shadow-sm border-0 ${styles.settingsCard} ${styles.themeCard}`}><div className="card-body p-4">

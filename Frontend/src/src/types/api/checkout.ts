@@ -10,3 +10,8 @@ export interface CheckoutRequest {
     totalItems: number;
     totalPrice: number;
 }
+
+export interface CheckoutResponse {
+    message: string;
+    receiptEmailSent: boolean;
+}

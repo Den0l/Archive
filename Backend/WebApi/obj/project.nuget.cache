@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "qDTSndNv1S8=",
+  "dgSpecHash": "uZgTKitX31A=",
   "success": true,
-  "projectFilePath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\WebApi\\WebApi.csproj",
+  "projectFilePath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\WebApi\\WebApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Ddell\\.nuget\\packages\\automapper\\14.0.0\\automapper.14.0.0.nupkg.sha512",
     "C:\\Users\\Ddell\\.nuget\\packages\\bouncycastle.cryptography\\2.5.1\\bouncycastle.cryptography.2.5.1.nupkg.sha512",
@@ -172,9 +172,9 @@
       "code": "NU1903",
       "level": "Warning",
       "message": "Package 'AutoMapper' 14.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x",
-      "projectPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\WebApi\\WebApi.csproj",
+      "projectPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\WebApi\\WebApi.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\WebApi\\WebApi.csproj",
+      "filePath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\WebApi\\WebApi.csproj",
       "libraryId": "AutoMapper",
       "targetGraphs": [
         "net8.0"
@@ -184,9 +184,9 @@
       "code": "NU1902",
       "level": "Warning",
       "message": "Package 'MailKit' 4.12.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr",
-      "projectPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\WebApi\\WebApi.csproj",
+      "projectPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\WebApi\\WebApi.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\WebApi\\WebApi.csproj",
+      "filePath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\WebApi\\WebApi.csproj",
       "libraryId": "MailKit",
       "targetGraphs": [
         "net8.0"

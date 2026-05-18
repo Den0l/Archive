@@ -38,6 +38,29 @@
     grid-area: theme;
 }
 
+.notificationsCard :global(.card-body),
+.themeCard :global(.card-body) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.notificationsCard :global(.h4),
+.themeCard :global(.h4) {
+    width: 100%;
+    text-align: center;
+}
+
+.notificationsCard :global(.form-check) {
+    width: 100%;
+    max-width: 24rem;
+    justify-content: center;
+}
+
+.notificationsCard :global(.form-check-label) {
+    text-align: center;
+}
+
 .subscriptionsCard {
     grid-area: subscriptions;
 }
@@ -56,6 +79,7 @@
 
 .settingsPage :global(.btn) {
     max-width: 15rem;
+    width: 55%;
 }
 
 .sectionButton {
@@ -124,6 +148,10 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.65rem;
+    width: 100%;
+    max-width: 20rem;
+    margin: 0 auto;
+    justify-items: center;
 }
 
 .themeOption {
@@ -133,7 +161,8 @@
     width: 100%;
     margin: 0;
     padding: 0.65rem 0.75rem;
-    text-align: left;
+    text-align: center;
+    justify-items: center;
     border: 1px solid #d1d5db;
     border-radius: 0.5rem;
     background: transparent;

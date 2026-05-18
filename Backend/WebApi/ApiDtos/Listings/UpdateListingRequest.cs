@@ -6,7 +6,7 @@ namespace WebApi.ApiDtos.Listings
 {
     public class UpdateListingRequest
     {
-        [Range(typeof(decimal), "1", "1000000")]
+        [Range(typeof(decimal), "1", "100000000")]
         public decimal Price { get; set; }
 
         [NotEmptyGuid]

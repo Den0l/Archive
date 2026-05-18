@@ -5,6 +5,7 @@ import {
     LoginRequest,
     LoginResponse,
     RegisterRequest,
+    ResetPasswordRequest,
 } from '@/types/api/auth';
 
 export const registerUser = async (data: RegisterRequest): Promise<string> => {
@@ -20,6 +21,15 @@ export const forgotPassword = async (
 ): Promise<string> => {
     return postData<string, ForgotPasswordRequest>(
         '/api/Auth/ForgotPassword',
+        data
+    );
+};
+
+export const resetPassword = async (
+    data: ResetPasswordRequest
+): Promise<string> => {
+    return postData<string, ResetPasswordRequest>(
+        '/api/Auth/ResetPassword',
         data
     );
 };

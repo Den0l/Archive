@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Application\\Application.csproj": {}
+    "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Application\\Application.csproj": {}
   },
   "projects": {
-    "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Application\\Application.csproj": {
+    "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Application\\Application.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Application\\Application.csproj",
+        "projectUniqueName": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Application\\Application.csproj",
         "projectName": "Application",
-        "projectPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Application\\Application.csproj",
+        "projectPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Application\\Application.csproj",
         "packagesPath": "C:\\Users\\Ddell\\.nuget\\packages\\",
-        "outputPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Application\\obj\\",
+        "outputPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Application\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -32,8 +32,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Domain\\Domain.csproj": {
-                "projectPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Domain\\Domain.csproj"
+              "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Domain\\Domain.csproj": {
+                "projectPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Domain\\Domain.csproj"
               }
             }
           }
@@ -73,14 +73,14 @@
         }
       }
     },
-    "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Domain\\Domain.csproj": {
+    "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Domain\\Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Domain\\Domain.csproj",
+        "projectUniqueName": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Domain\\Domain.csproj",
         "projectName": "Domain",
-        "projectPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Domain\\Domain.csproj",
+        "projectPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Domain\\Domain.csproj",
         "packagesPath": "C:\\Users\\Ddell\\.nuget\\packages\\",
-        "outputPath": "C:\\Projects\\MPT\\BSfashion\\SecondhandMarketplace\\Backend\\Core\\Domain\\obj\\",
+        "outputPath": "C:\\Projects\\MPT\\Archive\\ArchiveWeb\\Backend\\Core\\Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

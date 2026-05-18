@@ -511,9 +511,11 @@ export default function UserPage({ params }: { params: { id: string } }) {
                 <h1 className="mb-0">{user.nickname}</h1>
             </div>
             <div className="text-center mb-4">
-                <div className="text-muted">
-                    {TEXT.emailLabel} {user.email || '-'}
-                </div>
+                {user.email && (
+                    <div className="text-muted">
+                        {TEXT.emailLabel} {user.email}
+                    </div>
+                )}
                 <div className="text-muted">
                     {!isSystemUser && (
                         <>
@@ -667,33 +669,35 @@ export default function UserPage({ params }: { params: { id: string } }) {
                     </Tab>
                 )}
                 <Tab eventKey="reviews" title={TEXT.reviewsTab}>
-                    {canLeaveReview && (
-                        <div className="d-flex mb-3">
-                            <button
-                                className="btn btn-outline-primary"
-                                onClick={openReviewModal}
-                            >
-                                {TEXT.leaveReviewButton}
-                            </button>
-                        </div>
-                    )}
-                    {loadingReviews ? (
-                        <div className="loading-centered loading-centered--compact">
-                            {TEXT.loadingReviews}
-                        </div>
-                    ) : (
-                        reviewsPage &&
-                        (reviewsPage.items.length > 0 ? (
-                            <ReviewList
-                                page={reviewsPage}
-                                onPageChange={loadReviews}
-                            />
+                    <div className="reviews-tab-layout">
+                        {canLeaveReview && (
+                            <div className="d-flex mb-3">
+                                <button
+                                    className="btn btn-outline-primary"
+                                    onClick={openReviewModal}
+                                >
+                                    {TEXT.leaveReviewButton}
+                                </button>
+                            </div>
+                        )}
+                        {loadingReviews ? (
+                            <div className="loading-centered loading-centered--compact">
+                                {TEXT.loadingReviews}
+                            </div>
                         ) : (
-                            <p className="text-muted text-center my-3">
-                                {TEXT.noReviews}
-                            </p>
-                        ))
-                    )}
+                            reviewsPage &&
+                            (reviewsPage.items.length > 0 ? (
+                                <ReviewList
+                                    page={reviewsPage}
+                                    onPageChange={loadReviews}
+                                />
+                            ) : (
+                                <p className="text-muted text-center my-3">
+                                    {TEXT.noReviews}
+                                </p>
+                            ))
+                        )}
+                    </div>
                 </Tab>
             </Tabs>
 

@@ -1,55 +1,55 @@
+using Application.Interfaces.Repositories;
 using AutoMapper;
 using Infrastructure.FileStorage.Interfaces;
 using Infrastructure.ImageProcessing.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Infrastructure.Identity;
 using WebApi.ApiDtos.Images;
 using WebApi.Validation;
 
 namespace WebApi.Controllers
 {
-    /// <summary>
-    /// Controller for managing image operations such as retrieving, uploading, deleting,
-    /// and processing images.
-    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    public class ImagesController : ControllerBase
+    [Authorize]
+    public class ImagesController : AuthorizedControllerBase
     {
         private readonly IImageRepository repository;
+        private readonly IListingRepository listingRepository;
         private readonly IBackgroundRemovalService backgroundRemovalService;
+        private readonly UserManager<ApplicationUser> userManager;
         private readonly ILogger<ImagesController> logger;
         private readonly IMapper mapper;
 
-        /// <summary>
-        /// Initializes a new instance of ImagesController
-        /// </summary>
         public ImagesController(
             IImageRepository repository,
+            IListingRepository listingRepository,
             IBackgroundRemovalService backgroundRemovalService,
+            UserManager<ApplicationUser> userManager,
             ILogger<ImagesController> logger,
             IMapper mapper)
         {
             this.repository = repository;
+            this.listingRepository = listingRepository;
             this.backgroundRemovalService = backgroundRemovalService;
+            this.userManager = userManager;
             this.logger = logger;
             this.mapper = mapper;
         }
 
-        /// <summary>
-        /// Retrieves all images.
-        /// </summary>
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAll()
         {
             var domain = await repository.GetAllAsync();
             return Ok(mapper.Map<List<ImageDto>>(domain));
         }
 
-        /// <summary>
-        /// Retrieves an image by its ID.
-        /// </summary>
         [HttpGet]
         [Route("{id:Guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var domain = await repository.GetByIdAsync(id);
@@ -61,25 +61,32 @@ namespace WebApi.Controllers
             return Ok(mapper.Map<ImageDto>(domain));
         }
 
-        /// <summary>
-        /// Deletes an image by its ID.
-        /// </summary>
         [HttpDelete]
         [Route("{id:Guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var domain = await repository.DeleteAsync(id);
-            if (domain == null)
+            var image = await repository.GetByIdAsync(id);
+            var notFoundResult = NotFoundIfNull(image);
+            if (notFoundResult != null)
+            {
+                return notFoundResult;
+            }
+
+            var ownershipResult = await EnsureOwnsListingOrIsAdminAsync(image!.ListingId);
+            if (ownershipResult != null)
+            {
+                return ownershipResult;
+            }
+
+            var deleted = await repository.DeleteAsync(id);
+            if (deleted == null)
             {
                 return NotFound();
             }
 
-            return Ok(mapper.Map<ImageDto>(domain));
+            return Ok(mapper.Map<ImageDto>(deleted));
         }
 
-        /// <summary>
-        /// Uploads a new image.
-        /// </summary>
         [HttpPost]
         [Route("Upload")]
         public async Task<IActionResult> Upload([FromForm] AddImageRequest request)
@@ -90,31 +97,28 @@ namespace WebApi.Controllers
                 return BadRequest(ModelState);
             }
 
+            var ownershipResult = await EnsureOwnsListingOrIsAdminAsync(request.ListingId);
+            if (ownershipResult != null)
+            {
+                return ownershipResult;
+            }
+
             try
             {
                 var domain = await repository.UploadAsync(request.ListingId, request.File);
                 if (domain == null)
                 {
-                    return NotFound(new
-                    {
-                        message = "\u041e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u0435 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e.",
-                    });
+                    return NotFound(new { message = "Объявление не найдено." });
                 }
 
                 return Ok(mapper.Map<ImageDto>(domain));
             }
             catch (InvalidOperationException exception)
             {
-                return BadRequest(new
-                {
-                    message = exception.Message,
-                });
+                return BadRequest(new { message = exception.Message });
             }
         }
 
-        /// <summary>
-        /// Removes the background from a new or existing image.
-        /// </summary>
         [HttpPost]
         [Route("RemoveBackground")]
         public async Task<IActionResult> RemoveBackground(
@@ -126,10 +130,7 @@ namespace WebApi.Controllers
 
             if (hasFile == hasImageId)
             {
-                return BadRequest(new
-                {
-                    message = "\u041f\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u043b\u0438\u0431\u043e \u0444\u0430\u0439\u043b, \u043b\u0438\u0431\u043e imageId.",
-                });
+                return BadRequest(new { message = "Передайте либо файл, либо imageId." });
             }
 
             try
@@ -160,10 +161,14 @@ namespace WebApi.Controllers
                         cancellationToken);
                     if (storedImage == null)
                     {
-                        return NotFound(new
-                        {
-                            message = "\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e.",
-                        });
+                        return NotFound(new { message = "Изображение не найдено." });
+                    }
+
+                    var ownershipResult = await EnsureOwnsListingOrIsAdminAsync(
+                        storedImage.Image.ListingId);
+                    if (ownershipResult != null)
+                    {
+                        return ownershipResult;
                     }
 
                     var validationError = ImageUploadValidation.ValidateFile(
@@ -186,19 +191,16 @@ namespace WebApi.Controllers
             {
                 logger.LogError(
                     exception,
-                    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0443\u0434\u0430\u043b\u0438\u0442\u044c \u0444\u043e\u043d \u0441 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u044f. SourceType={SourceType}",
+                    "Не удалось удалить фон с изображения. SourceType={SourceType}",
                     hasFile ? "file" : "imageId");
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    message = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0443\u0431\u0440\u0430\u0442\u044c \u0444\u043e\u043d \u0441 \u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0438.",
+                    message = "Не удалось убрать фон с фотографии.",
                 });
             }
         }
 
-        /// <summary>
-        /// Validates the uploaded file.
-        /// </summary>
         private void ValidateFileUpload(IFormFile file)
         {
             var validationError = ImageUploadValidation.ValidateFile(
@@ -211,6 +213,33 @@ namespace WebApi.Controllers
             }
 
             ModelState.AddModelError("file", validationError);
+        }
+
+        private async Task<IActionResult?> EnsureOwnsListingOrIsAdminAsync(Guid listingId)
+        {
+            if (!TryGetAuthenticatedUserId(out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var listing = await listingRepository.GetByIdAsync(listingId);
+            if (listing == null)
+            {
+                return NotFound(new { message = "Объявление не найдено." });
+            }
+
+            if (listing.SellerId == userId)
+            {
+                return null;
+            }
+
+            var user = await userManager.FindByIdAsync(userId.ToString());
+            if (user != null && await userManager.IsInRoleAsync(user, "Admin"))
+            {
+                return null;
+            }
+
+            return Forbid();
         }
     }
 }

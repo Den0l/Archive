@@ -2,6 +2,7 @@ using Application.Interfaces.Repositories;
 using AutoMapper;
 using Domain.Entities;
 using Infrastructure.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ using WebApi.Services;
 
 namespace WebApi.Hubs
 {
+    [Authorize]
     public class ChatHub : Hub
     {
         private const int MessageMaxLength = 1000;
@@ -97,6 +99,11 @@ namespace WebApi.Hubs
                 mappedMessage);
 
             var conversation = await conversationRepository.GetByIdAsync(conversationId);
+            if (conversation == null)
+            {
+                return;
+            }
+
             var recipientIds = conversation.ConversationParticipants
                 .Select(participant => participant.UserId)
                 .Where(userId => userId != senderId)

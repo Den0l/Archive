@@ -1,8 +1,11 @@
 services:
     db:
+        image: marketplace-db:latest
         build: ./Database
         container_name: marketplace-db
         restart: unless-stopped
+        command:
+          - --log-bin-trust-function-creators=1
         environment:
           MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
           MYSQL_DATABASE:     ${MYSQL_DATABASE}
@@ -43,14 +46,15 @@ services:
                     "CMD",
                     "python",
                     "-c",
-                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7000/api')"
+                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7000/api', timeout=5)"
                 ]
-            interval: 15s
+            interval: 10s
             timeout: 10s
-            retries: 10
-            start_period: 20s
+            retries: 24
+            start_period: 120s
 
     backend:
+        image: marketplace-backend:latest
         build:
             context: ./Backend
             dockerfile: WebApi/Dockerfile

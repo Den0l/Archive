@@ -12,11 +12,16 @@ namespace WebApi.Controllers
     public class CartController : AuthorizedControllerBase
     {
         private readonly ICartRepository cartRepository;
+        private readonly IListingRepository listingRepository;
         private readonly IMapper mapper;
 
-        public CartController(ICartRepository cartRepository, IMapper mapper)
+        public CartController(
+            ICartRepository cartRepository,
+            IListingRepository listingRepository,
+            IMapper mapper)
         {
             this.cartRepository = cartRepository;
+            this.listingRepository = listingRepository;
             this.mapper = mapper;
         }
 
@@ -28,8 +33,11 @@ namespace WebApi.Controllers
 
             var items = await cartRepository.GetByUserIdAsync(userId);
             var dtoItems = mapper.Map<List<CartItemDto>>(items);
-            var totalItems = dtoItems.Sum(i => i.Quantity);
-            var totalPrice = dtoItems.Sum(i => i.Quantity * i.Listing.Price);
+            var availableItems = dtoItems
+                .Where(item => !item.Listing.IsSold && !item.Listing.IsArchived)
+                .ToList();
+            var totalItems = availableItems.Sum(item => item.Quantity);
+            var totalPrice = availableItems.Sum(item => item.Quantity * item.Listing.Price);
 
             var dto = new CartDto
             {
@@ -49,6 +57,16 @@ namespace WebApi.Controllers
 
             if (!TryGetAuthenticatedUserId(out var userId))
                 return Unauthorized();
+
+            var listing = await listingRepository.GetByIdAsync(request.ListingId);
+            if (listing == null)
+                return NotFound("Listing not found.");
+
+            if (listing.SellerId == userId)
+                return BadRequest("Нельзя добавить в корзину собственное объявление.");
+
+            if (listing.IsSold || listing.IsArchived)
+                return BadRequest("Объявление недоступно.");
 
             var item = await cartRepository.AddItemAsync(userId, request.ListingId, request.Quantity);
             if (item == null)

@@ -48,6 +48,12 @@ namespace Infrastructure.Persistence.Repositories
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync();
 
+        public Task<bool> HasOtherActiveOrderAsync(Guid listingId, Guid excludeOrderId) =>
+            dbContext.Orders.AnyAsync(o =>
+                o.ListingId == listingId &&
+                o.Id != excludeOrderId &&
+                o.Status != OrderStatus.Cancelled);
+
         public async Task UpdateAsync(Order order)
         {
             dbContext.Orders.Update(order);

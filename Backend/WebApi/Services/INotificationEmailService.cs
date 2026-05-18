@@ -63,6 +63,6 @@ namespace WebApi.Services
         Task SendPasswordResetAsync(
             string toEmail,
             string? toName,
-            string newPassword);
+            string resetUrl);
     }
 }
