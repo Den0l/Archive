@@ -1,8 +1,8 @@
 node_modules/
-.env.local
+.env
 .env.server
 backend.env.server
-Backend/WebApi/.env.local
+Backend/WebApi/.env
 Backend/WebApi/.env.server
 deploy/linux/dist/
 deploy/linux/images.tar.gz
