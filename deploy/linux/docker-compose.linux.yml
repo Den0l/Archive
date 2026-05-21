@@ -1,0 +1,19 @@
+services:
+  backend:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      MYSQL_HOST: db
+      Rembg__Endpoint: http://rembg:7000/api/remove
+    env_file:
+      - ./.env.server
+      - ./Backend/WebApi/.env.server
+
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+      NEXT_PUBLIC_MARKETPLACE_NAME: ${NEXT_PUBLIC_MARKETPLACE_NAME}
+      NODE_ENV: production
+    build:
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_MARKETPLACE_NAME: ${NEXT_PUBLIC_MARKETPLACE_NAME}
