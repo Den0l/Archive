@@ -73,7 +73,7 @@ services:
             MYSQL_HOST: db
             Rembg__Endpoint: http://rembg:7000/api/remove
         volumes:
-            - ./Backend/WebApi/images:/app/Images
+            - ./Backend/WebApi/Images:/app/Images
         ports:
             - '7192:80'
 

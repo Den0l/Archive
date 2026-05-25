@@ -206,8 +206,8 @@ namespace Test
                 return new UsersController(
                     UserManager,
                     mapper,
-                    notificationEmailService,
                     new InMemoryEmailVerificationService(),
+                    new ImmediateBackgroundNotificationQueue(notificationEmailService),
                     NullLogger<UsersController>.Instance)
                 {
                     ControllerContext = CreateControllerContext(userId)
@@ -466,6 +466,24 @@ namespace Test
             {
                 EnqueuedCount += 1;
                 return ValueTask.CompletedTask;
+            }
+        }
+
+        private sealed class ImmediateBackgroundNotificationQueue
+            : IBackgroundNotificationQueue
+        {
+            private readonly INotificationEmailService notificationEmailService;
+
+            public ImmediateBackgroundNotificationQueue(
+                INotificationEmailService notificationEmailService)
+            {
+                this.notificationEmailService = notificationEmailService;
+            }
+
+            public async ValueTask QueueAsync(
+                Func<INotificationEmailService, CancellationToken, Task> workItem)
+            {
+                await workItem(notificationEmailService, CancellationToken.None);
             }
         }
 

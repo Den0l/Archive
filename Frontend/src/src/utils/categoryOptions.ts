@@ -11,10 +11,11 @@ export const flattenCategoryHierarchy = (
     parentPath: string[] = [],
     level = 0
 ): CategoryDropdownOption[] => {
+    const safeCategories = Array.isArray(categories) ? categories : [];
     const sourceCategories =
         parentPath.length === 0
-            ? categories.filter((category) => !category.parentCategory)
-            : categories;
+            ? safeCategories.filter((category) => !category.parentCategory)
+            : safeCategories;
 
     return sourceCategories.flatMap((category) => {
         const path = [...parentPath, category.name];
@@ -27,7 +28,9 @@ export const flattenCategoryHierarchy = (
         return [
             currentOption,
             ...flattenCategoryHierarchy(
-                category.childrenCategories,
+                Array.isArray(category.childrenCategories)
+                    ? category.childrenCategories
+                    : [],
                 path,
                 level + 1
             ),

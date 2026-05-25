@@ -149,6 +149,7 @@ main {
     .container-list {
         width: 95%;
         padding: var(--spacing-md);
+        min-width: 10rem;
     }
 }
 
@@ -156,6 +157,7 @@ main {
     .container-list {
         width: 98%;
         padding: var(--spacing-sm);
+        min-width: 10rem;
     }
 }
 
@@ -237,6 +239,12 @@ main {
     border: 0.25rem solid #ff9900;
     box-shadow: var(--shadow-lg);
     width: 30rem;
+}
+
+@media (max-width: 768px) {
+    .container-login {
+        width: auto;
+    }
 }
 
 .user-page {
@@ -1576,6 +1584,12 @@ textarea,
     outline: none;
     transition: all 0.2s ease;
     display: block;
+}
+
+@media (max-width: 768px) {
+    .input[type="email"], input[type="password"] {
+        min-width: 100%;
+    }
 }
 
 input[type="text"]::placeholder,

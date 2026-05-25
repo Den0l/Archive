@@ -16,21 +16,21 @@ namespace WebApi.Controllers
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly IMapper mapper;
-        private readonly INotificationEmailService notificationEmailService;
         private readonly IEmailVerificationService emailVerificationService;
+        private readonly IBackgroundNotificationQueue backgroundNotificationQueue;
         private readonly ILogger<UsersController> logger;
 
         public UsersController(
             UserManager<ApplicationUser> userManager,
             IMapper mapper,
-            INotificationEmailService notificationEmailService,
             IEmailVerificationService emailVerificationService,
+            IBackgroundNotificationQueue backgroundNotificationQueue,
             ILogger<UsersController> logger)
         {
             this.userManager = userManager;
             this.mapper = mapper;
-            this.notificationEmailService = notificationEmailService;
             this.emailVerificationService = emailVerificationService;
+            this.backgroundNotificationQueue = backgroundNotificationQueue;
             this.logger = logger;
         }
 
@@ -183,10 +183,14 @@ namespace WebApi.Controllers
 
             try
             {
-                await notificationEmailService.SendEmailVerificationCodeAsync(
-                    user.Email,
-                    user.Nickname,
-                    code);
+                var email = user.Email;
+                var nickname = user.Nickname;
+                await backgroundNotificationQueue.QueueAsync(
+                    (emailService, cancellationToken) =>
+                        emailService.SendEmailVerificationCodeAsync(
+                            email,
+                            nickname,
+                            code));
             }
             catch (Exception exception)
             {
@@ -284,11 +288,14 @@ namespace WebApi.Controllers
 
             try
             {
-                await notificationEmailService.SendEmailChangeCodeAsync(
-                    newEmail,
-                    user.Nickname,
-                    newEmail,
-                    code);
+                var nickname = user.Nickname;
+                await backgroundNotificationQueue.QueueAsync(
+                    (emailService, cancellationToken) =>
+                        emailService.SendEmailChangeCodeAsync(
+                            newEmail,
+                            nickname,
+                            newEmail,
+                            code));
             }
             catch (Exception exception)
             {

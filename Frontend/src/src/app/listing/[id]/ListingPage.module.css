@@ -475,12 +475,39 @@
     .detailsSection {
         grid-template-columns: minmax(0, 1fr);
     }
+
+    .infoColumn {
+        gap: 20px;
+        padding: 16px;
+    }
+
+    .ctaBox {
+        min-height: auto;
+        padding: 12px;
+    }
+
+    .cartActions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cartButton {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .favoriteButton {
+        align-self: flex-start;
+        min-width: 36px;
+        min-height: 36px;
+    }
 }
 
 @media (max-width: 600px) {
     .mainImageWrapper {
         height: clamp(11.5rem, 38vh, 18rem);
         min-height: 11.5rem;
+        padding: 8px;
     }
 
     .thumbStrip > .thumbButton {
@@ -499,6 +526,210 @@
 
     .price {
         font-size: 24px;
+    }
+
+    .infoColumn {
+        gap: 16px;
+        padding: 12px;
+        border-width: 2px;
+    }
+
+    .title {
+        font-size: 18px;
+    }
+
+    .priceRow {
+        padding: 10px 12px;
+        border-width: 2px;
+    }
+
+    .statsRow {
+        padding: 6px 12px;
+        border-width: 2px;
+        gap: 12px;
+    }
+
+    .statItem {
+        font-size: 12px;
+    }
+
+    .metaGrid {
+        gap: 8px;
+    }
+
+    .metaItem {
+        padding: 6px 8px;
+        border-width: 2px;
+        gap: 2px;
+    }
+
+    .metaLabel {
+        font-size: 11px;
+    }
+
+    .metaValue,
+    .metaLink {
+        font-size: 13px;
+    }
+
+    .ctaBox {
+        border-width: 2px;
+        padding: 10px;
+        gap: 10px;
+        min-height: auto;
+    }
+
+    .ctaHeader {
+        gap: 8px;
+    }
+
+    .ctaTitle {
+        font-size: 13px;
+    }
+
+    .sendButton {
+        min-width: 40px;
+        height: 34px;
+        padding: 0 10px;
+        font-size: 18px;
+    }
+
+    .messageForm {
+        max-height: 70px;
+    }
+
+    .messageForm textarea {
+        font-size: 14px;
+    }
+
+    .detailsBlock {
+        padding: 16px;
+        margin-top: 16px;
+        border-width: 2px;
+    }
+
+    .sectionTitle {
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    .sectionText {
+        font-size: 14px;
+    }
+
+    .propertiesList {
+        gap: 8px;
+    }
+
+    .propertyItem {
+        padding: 8px 10px;
+        border-width: 2px;
+        gap: 10px;
+        flex-direction: column;
+    }
+
+    .propertyLabel,
+    .propertyValue {
+        font-size: 13px;
+    }
+
+    .cartActions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cartButton {
+        margin-left: 0;
+        width: 100%;
+        font-size: 14px;
+    }
+
+    .favoriteButton {
+        align-self: flex-start;
+        min-width: 40px;
+        min-height: 40px;
+    }
+}
+
+@media (max-width: 400px) {
+    .productHeader {
+        gap: 16px;
+    }
+
+    .infoColumn {
+        gap: 12px;
+        padding: 10px;
+    }
+
+    .title {
+        font-size: 16px;
+    }
+
+    .price {
+        font-size: 20px;
+    }
+
+    .priceRow {
+        padding: 8px 10px;
+    }
+
+    .ctaBox {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .ctaHeader {
+        flex-wrap: wrap;
+    }
+
+    .ctaTitle {
+        font-size: 12px;
+        flex: 1 1 100%;
+    }
+
+    .sendButton {
+        min-width: 36px;
+        height: 32px;
+        padding: 0 8px;
+        font-size: 16px;
+        flex: 0 0 auto;
+    }
+
+    .messageForm {
+        max-height: 60px;
+    }
+
+    .messageForm textarea {
+        font-size: 13px;
+        padding: 8px;
+    }
+
+    .metaItem {
+        padding: 5px 6px;
+    }
+
+    .detailsBlock {
+        padding: 12px;
+        margin-top: 12px;
+    }
+
+    .sectionTitle {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .sectionText {
+        font-size: 13px;
+    }
+
+    .propertyItem {
+        padding: 6px 8px;
+        gap: 8px;
+    }
+
+    .cartButton {
+        font-size: 13px;
+        padding: 8px 12px;
     }
 }
 

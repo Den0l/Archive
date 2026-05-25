@@ -128,8 +128,11 @@ function CreateListingContent() {
         setSelectedCategoryId(categoryId);
 
         const category: CategoryDetail = await fetchCategoryById(categoryId);
+        const safeProperties = Array.isArray(category.listingProperties)
+            ? category.listingProperties
+            : [];
         setListingProperties(
-            category.listingProperties.filter(
+            safeProperties.filter(
                 (prop) => prop.listingPropertyValues.length > 0
             )
         );

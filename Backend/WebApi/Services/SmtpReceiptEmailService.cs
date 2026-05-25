@@ -41,15 +41,24 @@ namespace WebApi.Services
                 TextBody = HtmlToPlainText(htmlBody)
             }.ToMessageBody();
 
+            using var timeoutCancellationTokenSource = new CancellationTokenSource(
+                TimeSpan.FromSeconds(options.TimeoutSeconds));
             using var client = new MailKit.Net.Smtp.SmtpClient();
             client.CheckCertificateRevocation = options.CheckCertificateRevocation;
-            await client.ConnectAsync(options.Host, options.Port, GetSecureSocketOptions(options));
+            await client.ConnectAsync(
+                options.Host,
+                options.Port,
+                GetSecureSocketOptions(options),
+                timeoutCancellationTokenSource.Token);
 
             if (!string.IsNullOrWhiteSpace(options.Username))
             {
                 try
                 {
-                    await client.AuthenticateAsync(options.Username, options.Password ?? string.Empty);
+                    await client.AuthenticateAsync(
+                        options.Username,
+                        options.Password ?? string.Empty,
+                        timeoutCancellationTokenSource.Token);
                 }
                 catch (AuthenticationException exception)
                 {
@@ -57,8 +66,8 @@ namespace WebApi.Services
                 }
             }
 
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+            await client.SendAsync(message, timeoutCancellationTokenSource.Token);
+            await client.DisconnectAsync(true, timeoutCancellationTokenSource.Token);
         }
 
         private static string HtmlToPlainText(string html)
@@ -107,7 +116,8 @@ namespace WebApi.Services
                 CheckCertificateRevocation = GetBool(
                     "Email:CheckCertificateRevocation",
                     "SMTP_CHECK_CERTIFICATE_REVOCATION",
-                    true)
+                    true),
+                TimeoutSeconds = GetInt("Email:SmtpTimeoutSeconds", "SMTP_TIMEOUT_SECONDS", 20)
             };
         }
 
@@ -272,6 +282,7 @@ namespace WebApi.Services
             public string BrandName { get; init; } = string.Empty;
             public bool EnableSsl { get; init; }
             public bool CheckCertificateRevocation { get; init; }
+            public int TimeoutSeconds { get; init; }
         }
     }
 }
